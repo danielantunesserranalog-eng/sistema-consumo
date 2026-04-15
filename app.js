@@ -175,11 +175,36 @@ function mapDataToTrips(rows) {
         'Distância com o pedal de freio pressionado'
     ];
     
+    // Lista de colunas que devem ser convertidas para número corretamente
+    const numericColumns = [
+        'Distância (Km)', 'Vel. Max (Seca)', 'Vel. Max (Molhada)', 'Velocidade Média',
+        'Km/l', 'Total Litros Consumido', 'Tempo de Condução (%)', 'Tempo Parado (%)',
+        'Odômetro Inicial', 'Odômetro Final', 'Qtde. de acionamento do pedal de freio',
+        'Distância com o pedal de freio pressionado'
+    ];
+    
     return rows.map(row => {
         let newRow = {};
         allowedColumns.forEach(col => {
             let value = row[col] !== undefined ? row[col] : null;
-            if (typeof value === 'string') value = value.trim();
+            
+            if (typeof value === 'string') {
+                value = value.trim();
+                
+                // Tratamento específico para evitar erro de vírgula nas colunas numéricas
+                if (numericColumns.includes(col)) {
+                    if (value.includes(',')) {
+                        // Remove possíveis pontos de milhar e substitui a vírgula por ponto (formato americano)
+                        let cleanStr = value.replace(/\./g, '').replace(',', '.');
+                        let num = parseFloat(cleanStr);
+                        if (!isNaN(num)) value = num;
+                    } else {
+                        let num = parseFloat(value);
+                        if (!isNaN(num)) value = num;
+                    }
+                }
+            }
+            
             newRow[normalizeColumnName(col)] = value;
         });
         return newRow;
@@ -231,24 +256,6 @@ function formatNumberBR(value, decimals = 1) {
     });
 }
 
-// ==================== CÁLCULO DE DISTÂNCIA ====================
-
-/**
- * Calcula a distância real baseada no Odômetro Final - Odômetro Inicial
- */
-function getDistanciaReal(trip) {
-    const odoInicial = parseFloatSafe(trip.odometro_inicial);
-    const odoFinal = parseFloatSafe(trip.odometro_final);
-    
-    // Se temos valores válidos de odômetro, calcula a diferença
-    if (odoFinal > 0 && odoFinal >= odoInicial) {
-        return odoFinal - odoInicial;
-    }
-    
-    // Caso o odômetro venha zerado na planilha, usa a coluna de distância como fallback (segurança)
-    return parseFloatSafe(trip.distancia_km);
-}
-
 // ==================== CÁLCULO CORRETO DE MÉDIAS ====================
 
 /**
@@ -261,7 +268,7 @@ function calculateAverageKmpl(trips) {
     let totalFuel = 0;
     
     trips.forEach(trip => {
-        totalDistance += getDistanciaReal(trip);
+        totalDistance += parseFloatSafe(trip.distancia_km);
         totalFuel += parseFloatSafe(trip.total_litros);
     });
     
@@ -280,7 +287,7 @@ function calculateFleetStatistics(trips) {
     const driversSet = new Set();
     
     trips.forEach(trip => {
-        totalDistance += getDistanciaReal(trip);
+        totalDistance += parseFloatSafe(trip.distancia_km);
         totalFuel += parseFloatSafe(trip.total_litros);
         if (trip.motorista) driversSet.add(trip.motorista);
     });
@@ -327,7 +334,7 @@ function calculateDriverStatistics(trips) {
         
         if (trip.placa) driver.placas.add(trip.placa);
         
-        const distancia = getDistanciaReal(trip);
+        const distancia = parseFloatSafe(trip.distancia_km);
         const litros = parseFloatSafe(trip.total_litros);
         const velMedia = parseFloatSafe(trip.velocidade_media, null);
         const conducaoPercent = parseFloatSafe(trip.tempo_conducao_percent, null);
@@ -511,12 +518,12 @@ function updateScatterChart(trips) {
     // Preparar dados para o scatter plot (distância x km/l)
     const points = trips
         .filter(t => {
-            const dist = getDistanciaReal(t);
+            const dist = parseFloatSafe(t.distancia_km);
             const kml = parseFloatSafe(t.km_l);
             return dist > 0 && kml > 0;
         })
         .map(t => ({
-            x: getDistanciaReal(t),
+            x: parseFloatSafe(t.distancia_km),
             y: parseFloatSafe(t.km_l),
             motorista: t.motorista || 'Desconhecido',
             placa: t.placa || '-'
