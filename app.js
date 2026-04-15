@@ -116,7 +116,7 @@ async function handleFileUpload(event) {
         const mappedTrips = mapDataToTrips(data);
         
         if (mappedTrips.length === 0) {
-            throw new Error('Nenhuma linha válida encontrada no arquivo (ou todas tinham menos de 10 minutos de motor ligado).');
+            throw new Error('Nenhuma linha válida encontrada no arquivo (ou todas foram ignoradas pelos filtros).');
         }
         
         const progressBar = document.querySelector('#importProgress .progress-bar');
@@ -260,8 +260,14 @@ function mapDataToTrips(rows) {
         });
         return newRow;
     }).filter(trip => {
-        // Validação básica: tem que ter placa e motorista
-        if (!trip.placa || !trip.motorista) return false;
+        // Formata os nomes para garantir que não são espaços em branco
+        const motorista = trip.motorista ? trip.motorista.toString().trim() : '';
+        const placa = trip.placa ? trip.placa.toString().trim() : '';
+        
+        // Validação básica: descartar se placa ou motorista estiverem vazios, nulos ou forem apenas um "-"
+        if (!motorista || motorista === '-' || !placa || placa === '-') {
+            return false;
+        }
         
         // Validação extra: O tempo de motor ligado precisa ser >= 10 minutos
         const totalMinutos = parseTimeToMinutes(trip.tempo_motor_ligado);
