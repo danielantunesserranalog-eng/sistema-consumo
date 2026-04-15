@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FleetMetrics - Dashboard de Motoristas</title>
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- SheetJS (XLSX) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- SIDEBAR MODERNA -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <i class="fas fa-chart-line"></i>
+                <span>FleetMetrics</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-tab="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="config">
+                    <i class="fas fa-cog"></i>
+                    <span>Configurações</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="db-status" id="dbStatus">
+                    <i class="fas fa-database"></i>
+                    <span>Verificando...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- DASHBOARD VIEW -->
+            <div id="dashboardView" class="view active">
+                <header class="page-header">
+                    <h1><i class="fas fa-chart-pie"></i> Dashboard de Performance</h1>
+                    <div class="header-actions">
+                        <button id="refreshDashboardBtn" class="btn-outline"><i class="fas fa-sync-alt"></i> Atualizar</button>
+                    </div>
+                </header>
+                
+                <!-- CARDS KPI -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon"><i class="fas fa-users"></i></div>
+                        <div class="kpi-info">
+                            <h3>Motoristas</h3>
+                            <p id="totalDrivers">0</p>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="kpi-info">
+                            <h3>Média Km/l Geral</h3>
+                            <p id="avgKmpl">0.0</p>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon"><i class="fas fa-road"></i></div>
+                        <div class="kpi-info">
+                            <h3>Distância Total (Km)</h3>
+                            <p id="totalDistance">0</p>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon"><i class="fas fa-gas-pump"></i></div>
+                        <div class="kpi-info">
+                            <h3>Total Litros</h3>
+                            <p id="totalFuel">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- CHARTS + TABELA RANKING -->
+                <div class="charts-row">
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-bar"></i> Top 5 Eficiência (Km/l)</h3>
+                        </div>
+                        <canvas id="rankingChart" width="400" height="250"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> Consumo x Distância por Viagem</h3>
+                        </div>
+                        <canvas id="scatterChart" width="400" height="250"></canvas>
+                    </div>
+                </div>
+                
+                <!-- TABELA DETALHADA -->
+                <div class="data-table-wrapper">
+                    <div class="card-header">
+                        <h3><i class="fas fa-table"></i> Desempenho por Motorista</h3>
+                        <input type="text" id="searchDriver" placeholder="Buscar motorista ou placa..." class="search-input">
+                    </div>
+                    <div class="table-responsive">
+                        <table id="driversTable">
+                            <thead>
+                                <tr>
+                                    <th>Motorista</th>
+                                    <th>CPF</th>
+                                    <th>Placa(s)</th>
+                                    <th>Km/l Médio</th>
+                                    <th>Distância (Km)</th>
+                                    <th>Total Litros</th>
+                                    <th>Veloc. Média</th>
+                                    <th>Condução (%)</th>
+                                    <th>Freios (médio)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr><td colspan="9">Carregando dados...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CONFIGURAÇÕES VIEW (IMPORT) -->
+            <div id="configView" class="view">
+                <header class="page-header">
+                    <h1><i class="fas fa-database"></i> Configurações & Importação</h1>
+                </header>
+                <div class="config-card">
+                    <div class="config-section">
+                        <h3><i class="fas fa-upload"></i> Importar Arquivo Excel</h3>
+                        <p>Selecione um arquivo .xlsx ou .xls. O sistema irá comparar linhas (baseado na combinação Placa + Início) e inserir apenas novos registros.</p>
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-file-excel fa-3x"></i>
+                            <p>Arraste ou clique para selecionar</p>
+                            <input type="file" id="fileInput" accept=".xlsx, .xls" hidden>
+                            <button id="selectFileBtn" class="btn-primary"><i class="fas fa-folder-open"></i> Selecionar Arquivo</button>
+                        </div>
+                        <div id="importProgress" class="import-progress" style="display: none;">
+                            <div class="progress-bar"></div>
+                            <span id="progressMsg">Processando...</span>
+                        </div>
+                        <div id="importResult"></div>
+                    </div>
+                    <div class="config-section">
+                        <h3><i class="fas fa-trash-alt"></i> Gerenciar Dados</h3>
+                        <button id="clearAllDataBtn" class="btn-danger"><i class="fas fa-exclamation-triangle"></i> Limpar Todos os Registros</button>
+                        <p class="info-text">Ação irreversível. Remove todas as viagens e motoristas agregados.</p>
+                    </div>
+                </div>
+                <div class="config-card">
+                    <h3><i class="fas fa-info-circle"></i> Colunas importadas</h3>
+                    <div class="columns-list">
+                        <span>Identificador/Placa</span>
+                        <span>Início</span>
+                        <span>Fim</span>
+                        <span>Tempo de Motor Ligado</span>
+                        <span>Distância (Km)</span>
+                        <span>Vel. Max (Seca)</span>
+                        <span>Vel. Max (Molhada)</span>
+                        <span>Velocidade Média</span>
+                        <span>Km/l</span>
+                        <span>Total Litros Consumido</span>
+                        <span>Tempo de Condução (%)</span>
+                        <span>Tempo Parado (%)</span>
+                        <span>Tempo de Condução</span>
+                        <span>Tempo Parado</span>
+                        <span>Odômetro Inicial</span>
+                        <span>Odômetro Final</span>
+                        <span>Motorista</span>
+                        <span>CPF</span>
+                        <span>Qtde. de acionamento do pedal de freio</span>
+                        <span>Distância com o pedal de freio pressionado</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="supabase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
