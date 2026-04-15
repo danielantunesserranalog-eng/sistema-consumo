@@ -1,4 +1,4 @@
-// app.js - Lógica completa do sistema com tratamento de erros
+// app.js - Lógica completa do sistema com tratamento de erros e melhorias visuais/gamificação
 
 // ==================== VARIÁVEIS GLOBAIS ====================
 let currentChartRanking = null;
@@ -38,7 +38,7 @@ function updateConnectionStatus(isConnected) {
 function showConnectionError() {
     const tableBody = document.getElementById('tableBody');
     if (tableBody) {
-        tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#dc2626;">❌ Erro de conexão com o banco de dados. Verifique suas credenciais.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#dc2626;">❌ Erro de conexão com o banco de dados. Verifique suas credenciais.</td></tr>';
     }
 }
 
@@ -49,12 +49,20 @@ function setupEventListeners() {
             const tab = item.dataset.tab;
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             item.classList.add('active');
-            document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+            
+            // Lógica de navegação
             if (tab === 'dashboard') {
+                document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
                 document.getElementById('dashboardView').classList.add('active');
                 loadDashboardData();
-            } else {
+            } else if (tab === 'config') {
+                document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
                 document.getElementById('configView').classList.add('active');
+            } else if (tab === 'suzano') {
+                // Aqui você pode expandir futuramente para a aba específica
+                alert('Aba de Indicadores em desenvolvimento...');
+                item.classList.remove('active');
+                document.querySelector('[data-tab="dashboard"]').classList.add('active');
             }
         });
     });
@@ -63,6 +71,10 @@ function setupEventListeners() {
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => loadDashboardData());
     }
+
+    // Eventos para Modo TV e Exportação
+    document.getElementById('tvModeBtn')?.addEventListener('click', toggleTvMode);
+    document.getElementById('exportPngBtn')?.addEventListener('click', exportDashboardToPNG);
     
     const fileInput = document.getElementById('fileInput');
     const selectBtn = document.getElementById('selectFileBtn');
@@ -96,9 +108,47 @@ function setupEventListeners() {
     const searchInput = document.getElementById('searchDriver');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-            renderDriversTable(allTrips, e.target.value);
+            // Recalcula os stats para aplicar o filtro sem perder ordenação
+            const driversStats = calculateDriverStatistics(allTrips);
+            renderDriversTable(driversStats, e.target.value);
         });
     }
+}
+
+// ==================== FUNÇÕES DE EXPORTAÇÃO E MODO TV ====================
+function toggleTvMode() {
+    const dashboard = document.getElementById('dashboardView');
+    if (!document.fullscreenElement) {
+        dashboard.requestFullscreen().catch(err => {
+            alert(`Erro ao tentar ativar o Modo TV: ${err.message}`);
+        });
+        dashboard.style.padding = '40px';
+        dashboard.style.backgroundColor = '#f8fafc';
+    } else {
+        document.exitFullscreen();
+        dashboard.style.padding = '';
+    }
+}
+
+function exportDashboardToPNG() {
+    const dashboard = document.getElementById('dashboardView');
+    const actions = document.querySelector('.header-actions');
+    
+    // Oculta os botões temporariamente
+    if (actions) actions.style.display = 'none';
+
+    html2canvas(dashboard, { scale: 2, backgroundColor: '#f8fafc' }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `Performance_Frota_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        // Restaura os botões
+        if (actions) actions.style.display = 'flex';
+    }).catch(err => {
+        console.error('Erro ao exportar PNG:', err);
+        if (actions) actions.style.display = 'flex';
+    });
 }
 
 // ==================== FUNÇÕES DE IMPORTAÇÃO (LEITURA NATIVA DE CSV) ====================
@@ -151,22 +201,16 @@ async function handleFileUpload(event) {
     }
 }
 
-/**
- * Lê o CSV nativamente sem usar bibliotecas externas para não corromper decimais com vírgula.
- */
 function readCsvFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const text = e.target.result;
-                // Detecta se é separado por ponto-e-vírgula (padrão Brasil) ou vírgula
                 const delimiter = text.includes(';') ? ';' : ',';
-                
                 const lines = text.split(/\r?\n/);
                 if (lines.length === 0) { resolve([]); return; }
                 
-                // Extrai cabeçalhos e limpa aspas
                 const headers = lines[0].split(delimiter).map(h => {
                     let hTrim = h.trim();
                     if (hTrim.startsWith('"') && hTrim.endsWith('"')) {
@@ -213,7 +257,6 @@ function readCsvFile(file) {
             }
         };
         reader.onerror = () => reject(new Error("Erro ao ler o arquivo."));
-        // Usa ISO-8859-1 para garantir que caracteres com acento (como "Distância") sejam lidos corretamente
         reader.readAsText(file, 'ISO-8859-1');
     });
 }
@@ -227,7 +270,6 @@ function mapDataToTrips(rows) {
         'Distância com o pedal de freio pressionado'
     ];
     
-    // Lista de colunas numéricas que devem ser rigorosamente tratadas do formato BR para banco de dados
     const numericColumns = [
         'Distância (Km)', 'Vel. Max (Seca)', 'Vel. Max (Molhada)', 'Velocidade Média',
         'Km/l', 'Total Litros Consumido', 'Tempo de Condução (%)', 'Tempo Parado (%)',
@@ -239,37 +281,23 @@ function mapDataToTrips(rows) {
         let newRow = {};
         allowedColumns.forEach(col => {
             let value = row[col] !== undefined ? row[col] : null;
-            
             if (typeof value === 'string') {
                 value = value.trim();
-                
-                // Tratamento específico para conversão de decimais (Ex: 789,62 vira 789.62)
                 if (numericColumns.includes(col) && value !== '') {
-                    // Remove possíveis pontos de milhar e converte vírgula decimal para ponto
                     let cleanStr = value.replace(/\./g, '').replace(',', '.');
                     let num = parseFloat(cleanStr);
-                    if (!isNaN(num)) {
-                        value = num;
-                    } else {
-                        value = null;
-                    }
+                    if (!isNaN(num)) value = num;
+                    else value = null;
                 }
             }
-            
             newRow[normalizeColumnName(col)] = value;
         });
         return newRow;
     }).filter(trip => {
-        // Formata os nomes para garantir que não são espaços em branco
         const motorista = trip.motorista ? trip.motorista.toString().trim() : '';
         const placa = trip.placa ? trip.placa.toString().trim() : '';
+        if (!motorista || motorista === '-' || !placa || placa === '-') return false;
         
-        // Validação básica: descartar se placa ou motorista estiverem vazios, nulos ou forem apenas um "-"
-        if (!motorista || motorista === '-' || !placa || placa === '-') {
-            return false;
-        }
-        
-        // Validação extra: O tempo de motor ligado precisa ser >= 10 minutos
         const totalMinutos = parseTimeToMinutes(trip.tempo_motor_ligado);
         return totalMinutos >= 10;
     });
@@ -301,16 +329,13 @@ function normalizeColumnName(colName) {
     return map[colName] || colName.replace(/\s+/g, '_').toLowerCase();
 }
 
-// ==================== FUNÇÕES AUXILIARES PARA VALIDAÇÃO E FORMATAÇÃO ====================
+// ==================== FUNÇÕES AUXILIARES ====================
 function parseFloatSafe(value, defaultValue = 0) {
     if (value === undefined || value === null || value === '') return defaultValue;
     const parsed = parseFloat(value);
     return isNaN(parsed) ? defaultValue : parsed;
 }
 
-/**
- * Formata números para o padrão brasileiro (ex: 1.500,50)
- */
 function formatNumberBR(value, decimals = 1) {
     const num = parseFloat(value);
     if (isNaN(num)) return '0' + (decimals > 0 ? ',' + '0'.repeat(decimals) : '');
@@ -320,15 +345,9 @@ function formatNumberBR(value, decimals = 1) {
     });
 }
 
-/**
- * Converte string de tempo (ex: "11h 14m 37s") para total em minutos
- */
 function parseTimeToMinutes(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') return 0;
-    
     let hours = 0, minutes = 0, seconds = 0;
-    
-    // Extrai horas, minutos e segundos usando Regex, ignorando case e espaços
     const hMatch = timeStr.match(/(\d+)\s*h/i);
     const mMatch = timeStr.match(/(\d+)\s*m/i);
     const sMatch = timeStr.match(/(\d+)\s*s/i);
@@ -337,62 +356,55 @@ function parseTimeToMinutes(timeStr) {
     if (mMatch) minutes = parseInt(mMatch[1], 10);
     if (sMatch) seconds = parseInt(sMatch[1], 10);
 
-    // Converte tudo para minutos
     return (hours * 60) + minutes + (seconds / 60);
 }
 
-// ==================== CÁLCULO CORRETO DE MÉDIAS ====================
-
-/**
- * Calcula a média de Km/l de forma correta: Distância Total / Total de Litros
- * @param {Array} trips - Lista de viagens
- * @returns {number} - Média de Km/l
- */
-function calculateAverageKmpl(trips) {
-    let totalDistance = 0;
-    let totalFuel = 0;
-    
-    trips.forEach(trip => {
-        totalDistance += parseFloatSafe(trip.distancia_km);
-        totalFuel += parseFloatSafe(trip.total_litros);
-    });
-    
-    if (totalFuel === 0) return 0;
-    return totalDistance / totalFuel;
+function formatMinutesToHours(minutes) {
+    if (!minutes || isNaN(minutes)) return "0h 00m";
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return `${h}h ${m < 10 ? '0'+m : m}m`;
 }
 
-/**
- * Calcula estatísticas da frota completa
- * @param {Array} trips - Lista de viagens
- * @returns {Object} - Estatísticas da frota
- */
+// ==================== CÁLCULO DE ESTATÍSTICAS E SCORE ====================
 function calculateFleetStatistics(trips) {
     let totalDistance = 0;
     let totalFuel = 0;
+    let totalMinutosCampo = 0;
+    let totalMinutosCarregamento = 0;
+    let validTimeRecords = 0;
     const driversSet = new Set();
     
     trips.forEach(trip => {
         totalDistance += parseFloatSafe(trip.distancia_km);
         totalFuel += parseFloatSafe(trip.total_litros);
         if (trip.motorista) driversSet.add(trip.motorista);
+
+        let conducaoMin = parseTimeToMinutes(trip.tempo_conducao);
+        let paradoMin = parseTimeToMinutes(trip.tempo_parado);
+        
+        if (conducaoMin > 0 || paradoMin > 0) {
+            totalMinutosCampo += (conducaoMin + paradoMin); // Tempo Total na Operação
+            totalMinutosCarregamento += paradoMin; // Associado ao tempo parado
+            validTimeRecords++;
+        }
     });
     
     const fleetKmpl = totalFuel > 0 ? (totalDistance / totalFuel) : 0;
+    const avgFieldTime = validTimeRecords > 0 ? (totalMinutosCampo / validTimeRecords) : 0;
+    const avgLoadingTime = validTimeRecords > 0 ? (totalMinutosCarregamento / validTimeRecords) : 0;
     
     return {
         totalDrivers: driversSet.size,
         fleetKmpl: fleetKmpl,
+        avgFieldTime: avgFieldTime,
+        avgLoadingTime: avgLoadingTime,
         totalDistance: totalDistance,
         totalFuel: totalFuel,
         totalTrips: trips.length
     };
 }
 
-/**
- * Calcula estatísticas por motorista (média correta: distância total / litros total)
- * @param {Array} trips - Lista de viagens
- * @returns {Array} - Lista de motoristas com suas estatísticas
- */
 function calculateDriverStatistics(trips) {
     const driverMap = new Map();
     
@@ -416,56 +428,58 @@ function calculateDriverStatistics(trips) {
         }
         
         const driver = driverMap.get(trip.motorista);
-        
         if (trip.placa) driver.placas.add(trip.placa);
         
-        const distancia = parseFloatSafe(trip.distancia_km);
-        const litros = parseFloatSafe(trip.total_litros);
+        driver.totalDistance += parseFloatSafe(trip.distancia_km);
+        driver.totalFuel += parseFloatSafe(trip.total_litros);
+        
         const velMedia = parseFloatSafe(trip.velocidade_media, null);
         const conducaoPercent = parseFloatSafe(trip.tempo_conducao_percent, null);
         const freios = parseFloatSafe(trip.freio_acionamentos);
         
-        driver.totalDistance += distancia;
-        driver.totalFuel += litros;
-        
-        if (velMedia !== null && !isNaN(velMedia) && velMedia > 0) {
+        if (velMedia !== null && velMedia > 0) {
             driver.somaVelMedia += velMedia;
             driver.countVelMedia++;
         }
-        
-        if (conducaoPercent !== null && !isNaN(conducaoPercent) && conducaoPercent > 0) {
+        if (conducaoPercent !== null && conducaoPercent > 0) {
             driver.somaConducaoPercent += conducaoPercent;
             driver.countConducao++;
         }
-        
         if (freios > 0) {
             driver.totalFreioAcionamentos += freios;
             driver.countFreio++;
         }
-        
         if (trip.cpf && trip.cpf !== '-') driver.cpf = trip.cpf;
     });
     
-    // Converter para array e calcular médias corretas
     const driversArray = Array.from(driverMap.values()).map(driver => {
-        // Média de Km/l correta: distância total / litros total
         const kmlMedio = driver.totalFuel > 0 ? (driver.totalDistance / driver.totalFuel) : 0;
+        const conducaoPercent = driver.countConducao > 0 ? (driver.somaConducaoPercent / driver.countConducao) : 0;
+        
+        // Lógica de Gamificação (Score máximo 100 pontos)
+        const metaKml = 2.5; // Ajuste conforme a meta operacional da frota
+        let scoreKml = (kmlMedio / metaKml) * 70;
+        if (scoreKml > 70) scoreKml = 70;
+        
+        let scoreConducao = (conducaoPercent / 100) * 30;
+        const scoreFinal = Math.round(scoreKml + scoreConducao);
         
         return {
             nome: driver.nome,
             cpf: driver.cpf || '-',
             placa: Array.from(driver.placas).join(', ') || '-',
             kmlMedio: kmlMedio,
+            score: scoreFinal,
             distanciaTotal: driver.totalDistance,
             totalLitros: driver.totalFuel,
             velMedia: driver.countVelMedia > 0 ? (driver.somaVelMedia / driver.countVelMedia) : 0,
-            conducaoPercent: driver.countConducao > 0 ? (driver.somaConducaoPercent / driver.countConducao) : 0,
+            conducaoPercent: conducaoPercent,
             freioMedio: driver.countFreio > 0 ? (driver.totalFreioAcionamentos / driver.countFreio) : 0
         };
     });
     
-    // Ordenar por Km/l médio (decrescente) - maior eficiência primeiro
-    return driversArray.sort((a, b) => b.kmlMedio - a.kmlMedio);
+    // Ordena pelo Score de forma decrescente para garantir os melhores motoristas no topo
+    return driversArray.sort((a, b) => b.score - a.score);
 }
 
 // ==================== DASHBOARD ====================
@@ -478,23 +492,21 @@ async function loadDashboardData() {
             return;
         }
         
-        // Estatísticas da frota (cálculo correto)
         const fleetStats = calculateFleetStatistics(allTrips);
         
         const totalDriversEl = document.getElementById('totalDrivers');
         const avgKmplEl = document.getElementById('avgKmpl');
-        const totalDistanceEl = document.getElementById('totalDistance');
-        const totalFuelEl = document.getElementById('totalFuel');
+        const avgFieldTimeEl = document.getElementById('avgFieldTime');
+        const avgLoadingTimeEl = document.getElementById('avgLoadingTime');
         
         if (totalDriversEl) totalDriversEl.innerText = fleetStats.totalDrivers;
         if (avgKmplEl) avgKmplEl.innerHTML = `${formatNumberBR(fleetStats.fleetKmpl, 2)} <span style="font-size: 0.7rem;">km/l</span>`;
-        if (totalDistanceEl) totalDistanceEl.innerHTML = `${formatNumberBR(fleetStats.totalDistance, 1)} <span style="font-size: 0.7rem;">km</span>`;
-        if (totalFuelEl) totalFuelEl.innerHTML = `${formatNumberBR(fleetStats.totalFuel, 1)} <span style="font-size: 0.7rem;">L</span>`;
+        if (avgFieldTimeEl) avgFieldTimeEl.innerText = formatMinutesToHours(fleetStats.avgFieldTime);
+        if (avgLoadingTimeEl) avgLoadingTimeEl.innerText = formatMinutesToHours(fleetStats.avgLoadingTime);
         
-        // Estatísticas por motorista (cálculo correto)
         const driversStats = calculateDriverStatistics(allTrips);
         
-        renderDriversTable(driversStats, '');
+        renderDriversTable(driversStats, document.getElementById('searchDriver')?.value || '');
         updateRankingChart(driversStats);
         updateScatterChart(allTrips);
         addTooltipToKPI();
@@ -521,23 +533,31 @@ function renderDriversTable(driversArray, searchTerm = '') {
     if (!tbody) return;
     
     if (filteredDrivers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9">Nenhum motorista encontrado</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10">Nenhum motorista encontrado</td></tr>';
         return;
     }
     
-    tbody.innerHTML = filteredDrivers.map(d => `
-        <tr>
-            <td><strong>${escapeHtml(d.nome)}</strong></td>
-            <td>${escapeHtml(d.cpf)}</td>
-            <td>${escapeHtml(d.placa)}</td>
-            <td class="kpi-highlight">${formatNumberBR(d.kmlMedio, 2)} km/l</td>
-            <td>${formatNumberBR(d.distanciaTotal, 1)} km</td>
-            <td>${formatNumberBR(d.totalLitros, 1)} L</td>
-            <td>${formatNumberBR(d.velMedia, 1)} km/h</td>
-            <td>${formatNumberBR(d.conducaoPercent, 0)}%</td>
-            <td>${formatNumberBR(d.freioMedio, 0)}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = filteredDrivers.map((d, index) => {
+        let medalha = '';
+        if (index === 0) medalha = '<i class="fas fa-medal" style="color: #fbbf24; font-size: 1.2rem;" title="1º Lugar"></i> ';
+        else if (index === 1) medalha = '<i class="fas fa-medal" style="color: #94a3b8; font-size: 1.2rem;" title="2º Lugar"></i> ';
+        else if (index === 2) medalha = '<i class="fas fa-medal" style="color: #b45309; font-size: 1.2rem;" title="3º Lugar"></i> ';
+
+        return `
+            <tr>
+                <td>${medalha}<strong>${escapeHtml(d.nome)}</strong></td>
+                <td>${escapeHtml(d.cpf)}</td>
+                <td>${escapeHtml(d.placa)}</td>
+                <td style="font-weight: 700; color: #0e7c86;">${d.score} pts</td>
+                <td class="kpi-highlight">${formatNumberBR(d.kmlMedio, 2)} km/l</td>
+                <td>${formatNumberBR(d.distanciaTotal, 1)} km</td>
+                <td>${formatNumberBR(d.totalLitros, 1)} L</td>
+                <td>${formatNumberBR(d.velMedia, 1)} km/h</td>
+                <td>${formatNumberBR(d.conducaoPercent, 0)}%</td>
+                <td>${formatNumberBR(d.freioMedio, 0)}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function updateRankingChart(driversStats) {
@@ -551,7 +571,7 @@ function updateRankingChart(driversStats) {
     if (topDrivers.length === 0) {
         currentChartRanking = new Chart(context, {
             type: 'bar',
-            data: { labels: ['Sem dados'], datasets: [{ label: 'Km/l', data: [0] }] }
+            data: { labels: ['Sem dados'], datasets: [{ label: 'Score', data: [0] }] }
         });
         return;
     }
@@ -559,11 +579,11 @@ function updateRankingChart(driversStats) {
     currentChartRanking = new Chart(context, {
         type: 'bar',
         data: {
-            labels: topDrivers.map(d => d.nome.length > 20 ? d.nome.substring(0, 20) + '...' : d.nome),
+            labels: topDrivers.map(d => d.nome.length > 15 ? d.nome.substring(0, 15) + '...' : d.nome),
             datasets: [{
-                label: 'Média de Km/l (Distância Total / Litros Total)',
-                data: topDrivers.map(d => parseFloat(d.kmlMedio)),
-                backgroundColor: '#3bc9db',
+                label: 'Score Geral do Motorista',
+                data: topDrivers.map(d => d.score),
+                backgroundColor: '#0e7c86',
                 borderRadius: 8,
                 barPercentage: 0.7
             }]
@@ -575,14 +595,15 @@ function updateRankingChart(driversStats) {
                 legend: { position: 'top' },
                 tooltip: { 
                     callbacks: { 
-                        label: (ctx) => `${formatNumberBR(ctx.raw, 2)} km/l`
+                        label: (ctx) => `${ctx.raw} Pontos`
                     } 
                 }
             },
             scales: {
                 y: {
-                    title: { display: true, text: 'Km/l', font: { weight: 'bold' } },
+                    title: { display: true, text: 'Pontuação (0-100)', font: { weight: 'bold' } },
                     beginAtZero: true,
+                    max: 100,
                     grid: { color: '#e2e8f0' }
                 },
                 x: {
@@ -600,7 +621,6 @@ function updateScatterChart(trips) {
     const context = ctx.getContext('2d');
     if (currentChartScatter) currentChartScatter.destroy();
     
-    // Preparar dados para o scatter plot (distância x km/l)
     const points = trips
         .filter(t => {
             const dist = parseFloatSafe(t.distancia_km);
@@ -686,22 +706,21 @@ function addTooltipToKPI() {
             kpiInfo.style.gap = '5px';
             kpiInfo.appendChild(tooltip);
         }
-        
     }
 }
 
 function clearDashboardEmpty() {
     const totalDriversEl = document.getElementById('totalDrivers');
     const avgKmplEl = document.getElementById('avgKmpl');
-    const totalDistanceEl = document.getElementById('totalDistance');
-    const totalFuelEl = document.getElementById('totalFuel');
+    const avgFieldTimeEl = document.getElementById('avgFieldTime');
+    const avgLoadingTimeEl = document.getElementById('avgLoadingTime');
     const tableBody = document.getElementById('tableBody');
     
     if (totalDriversEl) totalDriversEl.innerText = '0';
     if (avgKmplEl) avgKmplEl.innerHTML = '0 <span style="font-size: 0.7rem;">km/l</span>';
-    if (totalDistanceEl) totalDistanceEl.innerHTML = '0 <span style="font-size: 0.7rem;">km</span>';
-    if (totalFuelEl) totalFuelEl.innerHTML = '0 <span style="font-size: 0.7rem;">L</span>';
-    if (tableBody) tableBody.innerHTML = '<tr><td colspan="9">Nenhum dado importado</td></tr>';
+    if (avgFieldTimeEl) avgFieldTimeEl.innerText = '0h 00m';
+    if (avgLoadingTimeEl) avgLoadingTimeEl.innerText = '0h 00m';
+    if (tableBody) tableBody.innerHTML = '<tr><td colspan="10">Nenhum dado importado</td></tr>';
     
     if (currentChartRanking) currentChartRanking.destroy();
     if (currentChartScatter) currentChartScatter.destroy();

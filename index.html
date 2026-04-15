@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,6 +23,10 @@
                 <a href="#" class="nav-item active" data-tab="dashboard">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="suzano">
+                    <i class="fas fa-leaf"></i>
+                    <span>Indicadores Suzano</span>
                 </a>
                 <a href="#" class="nav-item" data-tab="config">
                     <i class="fas fa-cog"></i>
@@ -41,7 +46,9 @@
                 <header class="page-header">
                     <h1><i class="fas fa-chart-pie"></i> Dashboard de Performance</h1>
                     <div class="header-actions">
-                        <button id="refreshDashboardBtn" class="btn-outline"><i class="fas fa-sync-alt"></i> Atualizar</button>
+                        <button id="tvModeBtn" class="btn-outline"><i class="fas fa-tv"></i> Modo TV</button>
+                        <button id="exportPngBtn" class="btn-outline"><i class="fas fa-image"></i> Exportar PNG</button>
+                        <button id="refreshDashboardBtn" class="btn-primary"><i class="fas fa-sync-alt"></i> Atualizar</button>
                     </div>
                 </header>
                 
@@ -56,22 +63,22 @@
                     <div class="kpi-card">
                         <div class="kpi-icon"><i class="fas fa-tachometer-alt"></i></div>
                         <div class="kpi-info">
-                            <h3>Média Km/l Geral</h3>
+                            <h3>Média Geral (Km/l)</h3>
                             <p id="avgKmpl">0.0</p>
                         </div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-icon"><i class="fas fa-road"></i></div>
+                        <div class="kpi-icon"><i class="fas fa-stopwatch"></i></div>
                         <div class="kpi-info">
-                            <h3>Distância Total (Km)</h3>
-                            <p id="totalDistance">0</p>
+                            <h3>Tempo em Campo (Médio)</h3>
+                            <p id="avgFieldTime">0h 00m</p>
                         </div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-icon"><i class="fas fa-gas-pump"></i></div>
+                        <div class="kpi-icon"><i class="fas fa-truck-loading"></i></div>
                         <div class="kpi-info">
-                            <h3>Total Litros</h3>
-                            <p id="totalFuel">0</p>
+                            <h3>Tempo de Carregamento (Médio)</h3>
+                            <p id="avgLoadingTime">0h 00m</p>
                         </div>
                     </div>
                 </div>
@@ -103,6 +110,7 @@
                                     <th>Motorista</th>
                                     <th>CPF</th>
                                     <th>Placa(s)</th>
+                                    <th>Score (Pts)</th>
                                     <th>Km/l Médio</th>
                                     <th>Distância (Km)</th>
                                     <th>Total Litros</th>
@@ -112,7 +120,7 @@
                                 </tr>
                             </thead>
                             <tbody id="tableBody">
-                                <tr><td colspan="9">Carregando dados...</td></tr>
+                                <tr><td colspan="10">Carregando dados...</td></tr>
                             </tbody>
                         </table>
                     </div>
