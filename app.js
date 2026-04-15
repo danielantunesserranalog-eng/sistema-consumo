@@ -101,7 +101,7 @@ function setupEventListeners() {
     }
 }
 
-// ==================== FUNÇÕES DE IMPORTAÇÃO ====================
+// ==================== FUNÇÕES DE IMPORTAÇÃO (LEITURA NATIVA DE CSV) ====================
 async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -116,7 +116,7 @@ async function handleFileUpload(event) {
         const mappedTrips = mapDataToTrips(data);
         
         if (mappedTrips.length === 0) {
-            throw new Error('Nenhuma linha válida encontrada no arquivo');
+            throw new Error('Nenhuma linha válida encontrada no arquivo (ou todas tinham menos de 10 minutos de motor ligado).');
         }
         
         const progressBar = document.querySelector('#importProgress .progress-bar');
@@ -151,18 +151,70 @@ async function handleFileUpload(event) {
     }
 }
 
+/**
+ * Lê o CSV nativamente sem usar bibliotecas externas para não corromper decimais com vírgula.
+ */
 function readCsvFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function(e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(firstSheet);
-            resolve(rows);
+            try {
+                const text = e.target.result;
+                // Detecta se é separado por ponto-e-vírgula (padrão Brasil) ou vírgula
+                const delimiter = text.includes(';') ? ';' : ',';
+                
+                const lines = text.split(/\r?\n/);
+                if (lines.length === 0) { resolve([]); return; }
+                
+                // Extrai cabeçalhos e limpa aspas
+                const headers = lines[0].split(delimiter).map(h => {
+                    let hTrim = h.trim();
+                    if (hTrim.startsWith('"') && hTrim.endsWith('"')) {
+                        hTrim = hTrim.substring(1, hTrim.length - 1);
+                    }
+                    return hTrim;
+                });
+                
+                const rows = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const values = [];
+                    let inQuotes = false;
+                    let currentVal = '';
+                    
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j];
+                        if (char === '"') {
+                            inQuotes = !inQuotes;
+                        } else if (char === delimiter && !inQuotes) {
+                            values.push(currentVal);
+                            currentVal = '';
+                        } else {
+                            currentVal += char;
+                        }
+                    }
+                    values.push(currentVal);
+                    
+                    let rowObj = {};
+                    headers.forEach((header, index) => {
+                        let val = values[index] !== undefined ? values[index].trim() : null;
+                        if (val && val.startsWith('"') && val.endsWith('"')) {
+                            val = val.substring(1, val.length - 1);
+                        }
+                        rowObj[header] = val;
+                    });
+                    rows.push(rowObj);
+                }
+                resolve(rows);
+            } catch (error) {
+                reject(new Error("Erro ao processar o formato do CSV."));
+            }
         };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
+        reader.onerror = () => reject(new Error("Erro ao ler o arquivo."));
+        // Usa ISO-8859-1 para garantir que caracteres com acento (como "Distância") sejam lidos corretamente
+        reader.readAsText(file, 'ISO-8859-1');
     });
 }
 
@@ -175,7 +227,7 @@ function mapDataToTrips(rows) {
         'Distância com o pedal de freio pressionado'
     ];
     
-    // Lista de colunas que devem ser convertidas para número corretamente
+    // Lista de colunas numéricas que devem ser rigorosamente tratadas do formato BR para banco de dados
     const numericColumns = [
         'Distância (Km)', 'Vel. Max (Seca)', 'Vel. Max (Molhada)', 'Velocidade Média',
         'Km/l', 'Total Litros Consumido', 'Tempo de Condução (%)', 'Tempo Parado (%)',
@@ -191,16 +243,15 @@ function mapDataToTrips(rows) {
             if (typeof value === 'string') {
                 value = value.trim();
                 
-                // Tratamento específico para evitar erro de vírgula nas colunas numéricas
-                if (numericColumns.includes(col)) {
-                    if (value.includes(',')) {
-                        // Remove possíveis pontos de milhar e substitui a vírgula por ponto (formato americano)
-                        let cleanStr = value.replace(/\./g, '').replace(',', '.');
-                        let num = parseFloat(cleanStr);
-                        if (!isNaN(num)) value = num;
+                // Tratamento específico para conversão de decimais (Ex: 789,62 vira 789.62)
+                if (numericColumns.includes(col) && value !== '') {
+                    // Remove possíveis pontos de milhar e converte vírgula decimal para ponto
+                    let cleanStr = value.replace(/\./g, '').replace(',', '.');
+                    let num = parseFloat(cleanStr);
+                    if (!isNaN(num)) {
+                        value = num;
                     } else {
-                        let num = parseFloat(value);
-                        if (!isNaN(num)) value = num;
+                        value = null;
                     }
                 }
             }
@@ -208,7 +259,14 @@ function mapDataToTrips(rows) {
             newRow[normalizeColumnName(col)] = value;
         });
         return newRow;
-    }).filter(trip => trip.placa && trip.motorista);
+    }).filter(trip => {
+        // Validação básica: tem que ter placa e motorista
+        if (!trip.placa || !trip.motorista) return false;
+        
+        // Validação extra: O tempo de motor ligado precisa ser >= 10 minutos
+        const totalMinutos = parseTimeToMinutes(trip.tempo_motor_ligado);
+        return totalMinutos >= 10;
+    });
 }
 
 function normalizeColumnName(colName) {
@@ -254,6 +312,27 @@ function formatNumberBR(value, decimals = 1) {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals
     });
+}
+
+/**
+ * Converte string de tempo (ex: "11h 14m 37s") para total em minutos
+ */
+function parseTimeToMinutes(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return 0;
+    
+    let hours = 0, minutes = 0, seconds = 0;
+    
+    // Extrai horas, minutos e segundos usando Regex, ignorando case e espaços
+    const hMatch = timeStr.match(/(\d+)\s*h/i);
+    const mMatch = timeStr.match(/(\d+)\s*m/i);
+    const sMatch = timeStr.match(/(\d+)\s*s/i);
+
+    if (hMatch) hours = parseInt(hMatch[1], 10);
+    if (mMatch) minutes = parseInt(mMatch[1], 10);
+    if (sMatch) seconds = parseInt(sMatch[1], 10);
+
+    // Converte tudo para minutos
+    return (hours * 60) + minutes + (seconds / 60);
 }
 
 // ==================== CÁLCULO CORRETO DE MÉDIAS ====================
