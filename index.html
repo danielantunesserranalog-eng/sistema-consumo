@@ -3,25 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>FleetMetrics - Dashboard de Motoristas</title>
-    <!-- Google Fonts & Font Awesome -->
+    <title>Motorista Padrão - Dashboard de Motoristas</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- SheetJS (XLSX) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- SIDEBAR MODERNA -->
         <aside class="sidebar">
             <div class="logo-area">
                 <i class="fas fa-chart-line"></i>
-                <span>FleetMetrics</span>
+                <span>Motorista Padrão</span>
             </div>
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-tab="dashboard">
@@ -41,9 +36,7 @@
             </div>
         </aside>
 
-        <!-- MAIN CONTENT -->
         <main class="main-content">
-            <!-- DASHBOARD VIEW -->
             <div id="dashboardView" class="view active">
                 <header class="page-header">
                     <h1><i class="fas fa-chart-pie"></i> Dashboard de Performance</h1>
@@ -52,7 +45,6 @@
                     </div>
                 </header>
                 
-                <!-- CARDS KPI -->
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-icon"><i class="fas fa-users"></i></div>
@@ -84,7 +76,6 @@
                     </div>
                 </div>
                 
-                <!-- CHARTS + TABELA RANKING -->
                 <div class="charts-row">
                     <div class="chart-card">
                         <div class="card-header">
@@ -100,7 +91,6 @@
                     </div>
                 </div>
                 
-                <!-- TABELA DETALHADA -->
                 <div class="data-table-wrapper">
                     <div class="card-header">
                         <h3><i class="fas fa-table"></i> Desempenho por Motorista</h3>
@@ -129,19 +119,18 @@
                 </div>
             </div>
             
-            <!-- CONFIGURAÇÕES VIEW (IMPORT) -->
             <div id="configView" class="view">
                 <header class="page-header">
                     <h1><i class="fas fa-database"></i> Configurações & Importação</h1>
                 </header>
                 <div class="config-card">
                     <div class="config-section">
-                        <h3><i class="fas fa-upload"></i> Importar Arquivo Excel</h3>
-                        <p>Selecione um arquivo .xlsx ou .xls. O sistema irá comparar linhas (baseado na combinação Placa + Início) e inserir apenas novos registros.</p>
+                        <h3><i class="fas fa-upload"></i> Importar Arquivo CSV</h3>
+                        <p>Selecione um arquivo .csv. O sistema irá comparar linhas (baseado na combinação Placa + Início) e inserir apenas novos registros.</p>
                         <div class="upload-area" id="uploadArea">
-                            <i class="fas fa-file-excel fa-3x"></i>
+                            <i class="fas fa-file-csv fa-3x"></i>
                             <p>Arraste ou clique para selecionar</p>
-                            <input type="file" id="fileInput" accept=".xlsx, .xls" hidden>
+                            <input type="file" id="fileInput" accept=".csv" hidden>
                             <button id="selectFileBtn" class="btn-primary"><i class="fas fa-folder-open"></i> Selecionar Arquivo</button>
                         </div>
                         <div id="importProgress" class="import-progress" style="display: none;">

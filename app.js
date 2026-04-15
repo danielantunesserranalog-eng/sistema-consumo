@@ -112,8 +112,8 @@ async function handleFileUpload(event) {
     if (resultDiv) resultDiv.innerHTML = '';
     
     try {
-        const data = await readExcelFile(file);
-        const mappedTrips = mapExcelToTrips(data);
+        const data = await readCsvFile(file);
+        const mappedTrips = mapDataToTrips(data);
         
         if (mappedTrips.length === 0) {
             throw new Error('Nenhuma linha válida encontrada no arquivo');
@@ -151,7 +151,7 @@ async function handleFileUpload(event) {
     }
 }
 
-function readExcelFile(file) {
+function readCsvFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -166,7 +166,7 @@ function readExcelFile(file) {
     });
 }
 
-function mapExcelToTrips(rows) {
+function mapDataToTrips(rows) {
     const allowedColumns = [
         'Identificador/Placa', 'Início', 'Fim', 'Tempo de Motor Ligado', 'Distância (Km)',
         'Vel. Max (Seca)', 'Vel. Max (Molhada)', 'Velocidade Média', 'Km/l', 'Total Litros Consumido',
@@ -212,11 +212,41 @@ function normalizeColumnName(colName) {
     return map[colName] || colName.replace(/\s+/g, '_').toLowerCase();
 }
 
-// ==================== FUNÇÕES AUXILIARES PARA VALIDAÇÃO ====================
+// ==================== FUNÇÕES AUXILIARES PARA VALIDAÇÃO E FORMATAÇÃO ====================
 function parseFloatSafe(value, defaultValue = 0) {
     if (value === undefined || value === null || value === '') return defaultValue;
     const parsed = parseFloat(value);
     return isNaN(parsed) ? defaultValue : parsed;
+}
+
+/**
+ * Formata números para o padrão brasileiro (ex: 1.500,50)
+ */
+function formatNumberBR(value, decimals = 1) {
+    const num = parseFloat(value);
+    if (isNaN(num)) return '0' + (decimals > 0 ? ',' + '0'.repeat(decimals) : '');
+    return num.toLocaleString('pt-BR', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
+}
+
+// ==================== CÁLCULO DE DISTÂNCIA ====================
+
+/**
+ * Calcula a distância real baseada no Odômetro Final - Odômetro Inicial
+ */
+function getDistanciaReal(trip) {
+    const odoInicial = parseFloatSafe(trip.odometro_inicial);
+    const odoFinal = parseFloatSafe(trip.odometro_final);
+    
+    // Se temos valores válidos de odômetro, calcula a diferença
+    if (odoFinal > 0 && odoFinal >= odoInicial) {
+        return odoFinal - odoInicial;
+    }
+    
+    // Caso o odômetro venha zerado na planilha, usa a coluna de distância como fallback (segurança)
+    return parseFloatSafe(trip.distancia_km);
 }
 
 // ==================== CÁLCULO CORRETO DE MÉDIAS ====================
@@ -231,7 +261,7 @@ function calculateAverageKmpl(trips) {
     let totalFuel = 0;
     
     trips.forEach(trip => {
-        totalDistance += parseFloatSafe(trip.distancia_km);
+        totalDistance += getDistanciaReal(trip);
         totalFuel += parseFloatSafe(trip.total_litros);
     });
     
@@ -250,7 +280,7 @@ function calculateFleetStatistics(trips) {
     const driversSet = new Set();
     
     trips.forEach(trip => {
-        totalDistance += parseFloatSafe(trip.distancia_km);
+        totalDistance += getDistanciaReal(trip);
         totalFuel += parseFloatSafe(trip.total_litros);
         if (trip.motorista) driversSet.add(trip.motorista);
     });
@@ -259,9 +289,9 @@ function calculateFleetStatistics(trips) {
     
     return {
         totalDrivers: driversSet.size,
-        fleetKmpl: fleetKmpl.toFixed(2),
-        totalDistance: totalDistance.toFixed(1),
-        totalFuel: totalFuel.toFixed(1),
+        fleetKmpl: fleetKmpl,
+        totalDistance: totalDistance,
+        totalFuel: totalFuel,
         totalTrips: trips.length
     };
 }
@@ -297,7 +327,7 @@ function calculateDriverStatistics(trips) {
         
         if (trip.placa) driver.placas.add(trip.placa);
         
-        const distancia = parseFloatSafe(trip.distancia_km);
+        const distancia = getDistanciaReal(trip);
         const litros = parseFloatSafe(trip.total_litros);
         const velMedia = parseFloatSafe(trip.velocidade_media, null);
         const conducaoPercent = parseFloatSafe(trip.tempo_conducao_percent, null);
@@ -333,17 +363,17 @@ function calculateDriverStatistics(trips) {
             nome: driver.nome,
             cpf: driver.cpf || '-',
             placa: Array.from(driver.placas).join(', ') || '-',
-            kmlMedio: kmlMedio.toFixed(2),
-            distanciaTotal: driver.totalDistance.toFixed(1),
-            totalLitros: driver.totalFuel.toFixed(1),
-            velMedia: driver.countVelMedia > 0 ? (driver.somaVelMedia / driver.countVelMedia).toFixed(1) : '0',
-            conducaoPercent: driver.countConducao > 0 ? (driver.somaConducaoPercent / driver.countConducao).toFixed(0) : '0',
-            freioMedio: driver.countFreio > 0 ? (driver.totalFreioAcionamentos / driver.countFreio).toFixed(0) : '0'
+            kmlMedio: kmlMedio,
+            distanciaTotal: driver.totalDistance,
+            totalLitros: driver.totalFuel,
+            velMedia: driver.countVelMedia > 0 ? (driver.somaVelMedia / driver.countVelMedia) : 0,
+            conducaoPercent: driver.countConducao > 0 ? (driver.somaConducaoPercent / driver.countConducao) : 0,
+            freioMedio: driver.countFreio > 0 ? (driver.totalFreioAcionamentos / driver.countFreio) : 0
         };
     });
     
     // Ordenar por Km/l médio (decrescente) - maior eficiência primeiro
-    return driversArray.sort((a, b) => parseFloat(b.kmlMedio) - parseFloat(a.kmlMedio));
+    return driversArray.sort((a, b) => b.kmlMedio - a.kmlMedio);
 }
 
 // ==================== DASHBOARD ====================
@@ -365,9 +395,9 @@ async function loadDashboardData() {
         const totalFuelEl = document.getElementById('totalFuel');
         
         if (totalDriversEl) totalDriversEl.innerText = fleetStats.totalDrivers;
-        if (avgKmplEl) avgKmplEl.innerHTML = `${fleetStats.fleetKmpl} <span style="font-size: 0.7rem;">km/l</span>`;
-        if (totalDistanceEl) totalDistanceEl.innerHTML = `${fleetStats.totalDistance} <span style="font-size: 0.7rem;">km</span>`;
-        if (totalFuelEl) totalFuelEl.innerHTML = `${fleetStats.totalFuel} <span style="font-size: 0.7rem;">L</span>`;
+        if (avgKmplEl) avgKmplEl.innerHTML = `${formatNumberBR(fleetStats.fleetKmpl, 2)} <span style="font-size: 0.7rem;">km/l</span>`;
+        if (totalDistanceEl) totalDistanceEl.innerHTML = `${formatNumberBR(fleetStats.totalDistance, 1)} <span style="font-size: 0.7rem;">km</span>`;
+        if (totalFuelEl) totalFuelEl.innerHTML = `${formatNumberBR(fleetStats.totalFuel, 1)} <span style="font-size: 0.7rem;">L</span>`;
         
         // Estatísticas por motorista (cálculo correto)
         const driversStats = calculateDriverStatistics(allTrips);
@@ -408,12 +438,12 @@ function renderDriversTable(driversArray, searchTerm = '') {
             <td><strong>${escapeHtml(d.nome)}</strong></td>
             <td>${escapeHtml(d.cpf)}</td>
             <td>${escapeHtml(d.placa)}</td>
-            <td class="kpi-highlight">${d.kmlMedio} km/l</td>
-            <td>${d.distanciaTotal} km</td>
-            <td>${d.totalLitros} L</td>
-            <td>${d.velMedia} km/h</td>
-            <td>${d.conducaoPercent}%</td>
-            <td>${d.freioMedio}</td>
+            <td class="kpi-highlight">${formatNumberBR(d.kmlMedio, 2)} km/l</td>
+            <td>${formatNumberBR(d.distanciaTotal, 1)} km</td>
+            <td>${formatNumberBR(d.totalLitros, 1)} L</td>
+            <td>${formatNumberBR(d.velMedia, 1)} km/h</td>
+            <td>${formatNumberBR(d.conducaoPercent, 0)}%</td>
+            <td>${formatNumberBR(d.freioMedio, 0)}</td>
         </tr>
     `).join('');
 }
@@ -453,7 +483,7 @@ function updateRankingChart(driversStats) {
                 legend: { position: 'top' },
                 tooltip: { 
                     callbacks: { 
-                        label: (ctx) => `${ctx.raw} km/l`
+                        label: (ctx) => `${formatNumberBR(ctx.raw, 2)} km/l`
                     } 
                 }
             },
@@ -481,12 +511,12 @@ function updateScatterChart(trips) {
     // Preparar dados para o scatter plot (distância x km/l)
     const points = trips
         .filter(t => {
-            const dist = parseFloatSafe(t.distancia_km);
+            const dist = getDistanciaReal(t);
             const kml = parseFloatSafe(t.km_l);
             return dist > 0 && kml > 0;
         })
         .map(t => ({
-            x: parseFloatSafe(t.distancia_km),
+            x: getDistanciaReal(t),
             y: parseFloatSafe(t.km_l),
             motorista: t.motorista || 'Desconhecido',
             placa: t.placa || '-'
@@ -526,8 +556,8 @@ function updateScatterChart(trips) {
                             return [
                                 `Motorista: ${point.motorista}`,
                                 `Placa: ${point.placa}`,
-                                `Distância: ${point.x.toFixed(1)} km`,
-                                `Consumo: ${point.y.toFixed(2)} km/l`
+                                `Distância: ${formatNumberBR(point.x, 1)} km`,
+                                `Consumo: ${formatNumberBR(point.y, 2)} km/l`
                             ];
                         }
                     }
@@ -565,7 +595,6 @@ function addTooltipToKPI() {
             kpiInfo.appendChild(tooltip);
         }
         
-        // CSS já está no style.css, não precisa adicionar novamente
     }
 }
 
