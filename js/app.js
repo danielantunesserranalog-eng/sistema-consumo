@@ -85,7 +85,8 @@ function initGlobalFilters() {
             customDateInput.style.display = 'block';
             if (!customDateInput.value) {
                 const today = new Date();
-                customDateInput.value = today.toISOString().split('T')[0];
+                const offset = today.getTimezoneOffset() * 60000;
+                customDateInput.value = (new Date(today - offset)).toISOString().split('T')[0];
             }
         } else {
             customDateInput.style.display = 'none';
@@ -282,7 +283,7 @@ function renderTables(viagens) {
     // Tabela Motoristas
     const dBody = document.getElementById('driversTableBody');
     if (dBody) {
-        if (dashboardData.criticalDrivers.length === 0) dBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Nenhum motorista na zona vermelha.</td></tr>';
+        if (dashboardData.criticalDrivers.length === 0) dBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Excelente. Sem motoristas na zona vermelha.</td></tr>';
         else dBody.innerHTML = dashboardData.criticalDrivers.slice(0, 10).map(d => `<tr><td style="font-weight:600;">${d.name}</td><td class="text-danger">${d.realKML.toFixed(2)}</td><td>${Math.round(d.dist)}</td></tr>`).join('');
     }
 
@@ -303,19 +304,26 @@ function renderTables(viagens) {
             return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
         };
 
-        const rows = viagens.map(v => {
-            const kml = parseFloat(v.km_l) || 0;
-            const kmlClass = kml > 0 && kml < 1.80 ? 'text-danger' : 'text-success';
-            return `<tr>
-                <td>${formatDT(v.inicio)}</td>
-                <td>${formatDT(v.fim)}</td>
-                <td style="font-weight:600; color:#e2e8f0;">${v.placa}</td>
-                <td>${v.motorista}</td>
-                <td>${v.distancia_km} km</td>
-                <td class="${kmlClass}">${kml.toFixed(2)}</td>
-            </tr>`;
-        }).join('');
-        hBody.innerHTML = rows;
+        // Inverte para mostrar as mais recentes primeiro e limita a 500 para não travar o navegador
+        const recentViagens = [...viagens].reverse().slice(0, 500);
+
+        if (recentViagens.length === 0) {
+            hBody.innerHTML = '<tr><td colspan="6" class="text-center text-warning">Sem dados para este período.</td></tr>';
+        } else {
+            const rows = recentViagens.map(v => {
+                const kml = parseFloat(v.km_l) || 0;
+                const kmlClass = kml > 0 && kml < 1.80 ? 'text-danger' : 'text-success';
+                return `<tr>
+                    <td>${formatDT(v.inicio)}</td>
+                    <td>${formatDT(v.fim)}</td>
+                    <td style="font-weight:600; color:#e2e8f0;">${v.placa}</td>
+                    <td>${v.motorista}</td>
+                    <td>${v.distancia_km} km</td>
+                    <td class="${kmlClass}">${kml.toFixed(2)}</td>
+                </tr>`;
+            }).join('');
+            hBody.innerHTML = rows;
+        }
     }
 }
 
@@ -635,7 +643,7 @@ function initDeleteModule() {
     const deleteBtn = document.getElementById('deleteAllBtn');
     if (!deleteBtn) return;
     deleteBtn.addEventListener('click', async () => {
-        if (!confirm('ATENÇÃO: APAGAR TODAS AS VIAGENS do banco. Continuar?')) return;
+        if (!confirm('ATENÇÃO: Você vai APAGAR TODAS AS VIAGENS do banco. Continuar?')) return;
         if (prompt('Digite a palavra "APAGAR" em maiúsculo:') === 'APAGAR') {
             try {
                 deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Formatando...';
@@ -674,5 +682,5 @@ function showEmptyDashboard() {
 }
 function showDashboardError() {     
     const tbody = document.getElementById('alertsTableBody');     
-    if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Erro de conexão.</td></tr>'; 
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro de conexão.</td></tr>'; 
 }
