@@ -59,18 +59,54 @@ function updateStatsCards() {
 }
 
 function renderTables(viagens) {     
+    
+    // 1. Tabela Nova: Ranking Geral de Motoristas
+    const rBody = document.getElementById('rankingTableBody');
+    if (rBody) {
+        if (dashboardData.drivers.length === 0) {
+            rBody.innerHTML = '<tr><td colspan="5" class="text-center text-warning">Sem dados de motoristas no período.</td></tr>';
+        } else {
+            rBody.innerHTML = dashboardData.drivers.map((d, index) => {
+                const kml = parseFloat(d.realKML) || 0;
+                const isCritical = kml > 0 && kml < currentMetaKML;
+                
+                // Selos de Status
+                const statusHtml = isCritical 
+                    ? `<span class="status-badge danger">Abaixo da Meta</span>` 
+                    : `<span class="status-badge success" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Na Meta</span>`;
+                
+                // Ícones de Posição
+                let rankTrophy = `${index + 1}º`;
+                if (index === 0) rankTrophy = `<i class="fas fa-trophy" style="color: #fbbf24; font-size: 1.2rem;"></i> 1º`;
+                else if (index === 1) rankTrophy = `<i class="fas fa-medal" style="color: #94a3b8; font-size: 1.1rem;"></i> 2º`;
+                else if (index === 2) rankTrophy = `<i class="fas fa-medal" style="color: #b45309; font-size: 1.1rem;"></i> 3º`;
+
+                return `<tr>
+                    <td style="font-weight:bold; font-size: 1rem;">${rankTrophy}</td>
+                    <td style="font-weight:600; color:#e2e8f0;">${d.name}</td>
+                    <td class="${isCritical ? 'text-danger' : 'text-success'}">${kml.toFixed(2)} KM/L</td>
+                    <td>${Math.round(d.dist).toLocaleString('pt-BR')} KM</td>
+                    <td>${statusHtml}</td>
+                </tr>`;
+            }).join('');
+        }
+    }
+
+    // 2. Tabela de Motoristas Críticos (Piores)
     const dBody = document.getElementById('driversTableBody');
     if (dBody) {
         if (dashboardData.criticalDrivers.length === 0) dBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Excelente. Sem motoristas na zona vermelha.</td></tr>';
         else dBody.innerHTML = dashboardData.criticalDrivers.slice(0, 10).map(d => `<tr><td style="font-weight:600;">${d.name}</td><td class="text-danger">${d.realKML.toFixed(2)}</td><td>${Math.round(d.dist)}</td></tr>`).join('');
     }
 
+    // 3. Tabela de Alertas de Equipamentos
     const aBody = document.getElementById('alertsTableBody');     
     if (aBody) {
         if (dashboardData.alerts.length === 0) aBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Nenhum alerta de frota pendente.</td></tr>'; 
         else aBody.innerHTML = dashboardData.alerts.slice(0, 10).map(a => `<tr><td style="font-weight: 600;">${a.placa}</td><td class="${parseFloat(a.trips) < 2 ? 'text-warning' : ''}">${a.trips}</td><td><span class="status-badge ${a.issue === 'Alto Consumo' ? 'danger' : 'warning'}">${a.issue}</span></td></tr>`).join(''); 
     }
 
+    // 4. Tabela de Histórico Detalhado (Aba 2)
     const hBody = document.getElementById('historyTableBody');
     if (hBody) {
         const formatDT = (iso) => {
@@ -190,7 +226,7 @@ function renderEvolutionChartLogic(viagens, type, value) {
 
 function showEmptyDashboard() {     
     document.querySelectorAll('.stat-card p').forEach(p => p.innerHTML = '--');     
-    ['alertsTableBody', 'driversTableBody', 'historyTableBody'].forEach(id => {
+    ['alertsTableBody', 'driversTableBody', 'historyTableBody', 'rankingTableBody'].forEach(id => {
         const e = document.getElementById(id); if (e) e.innerHTML = '<tr><td colspan="6" class="text-center text-warning">Sem dados para este período.</td></tr>';
     });
     if (driverChart) driverChart.destroy();
@@ -201,5 +237,5 @@ function showEmptyDashboard() {
 
 function showDashboardError() {     
     const tbody = document.getElementById('alertsTableBody');     
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro de conexão com o banco.</td></tr>'; 
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro de conexão.</td></tr>'; 
 }
