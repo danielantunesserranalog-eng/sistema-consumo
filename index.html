@@ -2,187 +2,162 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Motorista Padrão - Dashboard de Motoristas</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA_CONSUMO - Gestão de Frota</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-container">
-        <aside class="sidebar">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
             <div class="logo-area">
-                <i class="fas fa-chart-line"></i>
-                <span>Motorista Padrão</span>
+                <i class="fas fa-truck-fast"></i>
+                <span>SISTEMA_CONSUMO</span>
             </div>
             <nav class="nav-menu">
-                <a href="#" class="nav-item active" data-tab="dashboard">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard Principal</span>
                 </a>
-                <a href="#" class="nav-item" data-tab="suzano">
-                    <i class="fas fa-leaf"></i>
-                    <span>Indicadores Suzano</span>
+                <a href="#" class="nav-item" data-page="consumo-evolution">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Evolução de Consumo</span>
                 </a>
-                <a href="#" class="nav-item" data-tab="config">
+                <a href="#" class="nav-item" data-page="configuracoes">
                     <i class="fas fa-cog"></i>
                     <span>Configurações</span>
                 </a>
             </nav>
-            <div class="sidebar-footer">
-                <div class="db-status" id="dbStatus">
-                    <i class="fas fa-database"></i>
-                    <span>Verificando...</span>
-                </div>
-            </div>
         </aside>
 
+        <!-- Main Content -->
         <main class="main-content">
-            <div id="dashboardView" class="view active">
-                <header class="page-header">
-                    <h1><i class="fas fa-chart-pie"></i> Dashboard de Performance</h1>
-                    <div class="header-actions">
-                        <button id="tvModeBtn" class="btn-outline"><i class="fas fa-tv"></i> Modo TV</button>
-                        <button id="exportPngBtn" class="btn-outline"><i class="fas fa-image"></i> Exportar PNG</button>
-                        <button id="refreshDashboardBtn" class="btn-primary"><i class="fas fa-sync-alt"></i> Atualizar</button>
-                    </div>
-                </header>
-                
-                <div class="kpi-grid">
-                    <div class="kpi-card">
-                        <div class="kpi-icon"><i class="fas fa-users"></i></div>
-                        <div class="kpi-info">
-                            <h3>Motoristas</h3>
-                            <p id="totalDrivers">0</p>
+            <header class="top-bar">
+                <div class="menu-toggle" id="menuToggle">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <h1 id="pageTitle">Dashboard Principal</h1>
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Operador</span>
+                </div>
+            </header>
+
+            <div class="content-area" id="contentArea">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" class="page active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-gas-pump"></i></div>
+                            <div class="stat-info">
+                                <h3>Consumo Médio (Geral)</h3>
+                                <p id="avgConsumption">-- KM/L</p>
+                                <small>Meta: 1.80 KM/L</small>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                            <div class="stat-info">
+                                <h3>Consumo Médio (Motoristas)</h3>
+                                <p id="avgDriverConsumption">-- KM/L</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-truck"></i></div>
+                            <div class="stat-info">
+                                <h3>Consumo Médio (Caminhões)</h3>
+                                <p id="avgTruckConsumption">-- KM/L</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-chart-simple"></i></div>
+                            <div class="stat-info">
+                                <h3>Viagens/24h (Média)</h3>
+                                <p id="avgTripsPerDay">-- viagens</p>
+                                <small>Meta: 2 viagens</small>
+                            </div>
                         </div>
                     </div>
-                    <div class="kpi-card">
-                        <div class="kpi-icon"><i class="fas fa-tachometer-alt"></i></div>
-                        <div class="kpi-info">
-                            <h3>Média Geral (Km/l)</h3>
-                            <p id="avgKmpl">0.0</p>
+
+                    <div class="charts-row">
+                        <div class="chart-card">
+                            <h3>Consumo por Motorista</h3>
+                            <canvas id="driverConsumptionChart" width="400" height="300"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Consumo por Caminhão</h3>
+                            <canvas id="truckConsumptionChart" width="400" height="300"></canvas>
                         </div>
                     </div>
-                    <div class="kpi-card">
-                        <div class="kpi-icon"><i class="fas fa-stopwatch"></i></div>
-                        <div class="kpi-info">
-                            <h3>Tempo em Campo (Médio)</h3>
-                            <p id="avgFieldTime">0h 00m</p>
+
+                    <div class="charts-row">
+                        <div class="chart-card full-width">
+                            <h3>Tempo de Campo vs Fábrica</h3>
+                            <canvas id="timeDistributionChart" width="400" height="300"></canvas>
                         </div>
                     </div>
-                    <div class="kpi-card">
-                        <div class="kpi-icon"><i class="fas fa-truck-loading"></i></div>
-                        <div class="kpi-info">
-                            <h3>Tempo de Carregamento (Médio)</h3>
-                            <p id="avgLoadingTime">0h 00m</p>
+
+                    <div class="data-table-container">
+                        <h3>Alertas Operacionais</h3>
+                        <div class="table-wrapper">
+                            <table id="alertsTable">
+                                <thead>
+                                    <tr><th>Caminhão</th><th>Motorista</th><th>Consumo (KM/L)</th><th>Viagens/24h</th><th>Status</th></tr>
+                                </thead>
+                                <tbody id="alertsTableBody">
+                                    <tr><td colspan="5">Carregando dados...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
-                
-                <div class="charts-row">
-                    <div class="chart-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-chart-bar"></i> Top 5 Eficiência (Km/l)</h3>
+
+                <!-- Evolução de Consumo Page -->
+                <div id="consumoEvolutionPage" class="page">
+                    <div class="filter-bar">
+                        <div class="filter-group">
+                            <label for="filterType">Visualizar por:</label>
+                            <select id="filterType">
+                                <option value="motorista">Motorista</option>
+                                <option value="caminhao">Caminhão</option>
+                            </select>
                         </div>
-                        <canvas id="rankingChart" width="400" height="250"></canvas>
+                        <div class="filter-group">
+                            <label for="filterValue">Selecionar:</label>
+                            <select id="filterValue">
+                                <option value="">Selecione um item</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="chart-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-chart-line"></i> Consumo x Distância por Viagem</h3>
-                        </div>
-                        <canvas id="scatterChart" width="400" height="250"></canvas>
+                    <div class="chart-card full-width">
+                        <canvas id="evolutionChart" width="800" height="400"></canvas>
                     </div>
                 </div>
-                
-                <div class="data-table-wrapper">
-                    <div class="card-header">
-                        <h3><i class="fas fa-table"></i> Desempenho por Motorista</h3>
-                        <input type="text" id="searchDriver" placeholder="Buscar motorista ou placa..." class="search-input">
-                    </div>
-                    <div class="table-responsive">
-                        <table id="driversTable">
-                            <thead>
-                                <tr>
-                                    <th>Motorista</th>
-                                    <th>CPF</th>
-                                    <th>Placa(s)</th>
-                                    <th>Score (Pts)</th>
-                                    <th>Km/l Médio</th>
-                                    <th>Distância (Km)</th>
-                                    <th>Total Litros</th>
-                                    <th>Veloc. Média</th>
-                                    <th>Condução (%)</th>
-                                    <th>Freios (médio)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody">
-                                <tr><td colspan="10">Carregando dados...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="configView" class="view">
-                <header class="page-header">
-                    <h1><i class="fas fa-database"></i> Configurações & Importação</h1>
-                </header>
-                <div class="config-card">
-                    <div class="config-section">
-                        <h3><i class="fas fa-upload"></i> Importar Arquivo CSV</h3>
-                        <p>Selecione um arquivo .csv. O sistema irá comparar linhas (baseado na combinação Placa + Início) e inserir apenas novos registros.</p>
+
+                <!-- Configurações Page -->
+                <div id="configuracoesPage" class="page">
+                    <div class="config-card">
+                        <h2><i class="fas fa-upload"></i> Importação de Arquivos CSV</h2>
+                        <p>Selecione os arquivos de relatório de viagem para importar para o sistema.</p>
                         <div class="upload-area" id="uploadArea">
-                            <i class="fas fa-file-csv fa-3x"></i>
-                            <p>Arraste ou clique para selecionar</p>
-                            <input type="file" id="fileInput" accept=".csv" hidden>
-                            <button id="selectFileBtn" class="btn-primary"><i class="fas fa-folder-open"></i> Selecionar Arquivo</button>
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Arraste e solte arquivos CSV aqui ou clique para selecionar</p>
+                            <input type="file" id="csvFileInput" accept=".csv" multiple style="display: none;">
+                            <button id="selectFilesBtn" class="btn-primary">Selecionar Arquivos</button>
                         </div>
-                        <div id="importProgress" class="import-progress" style="display: none;">
-                            <div class="progress-bar"></div>
-                            <span id="progressMsg">Processando...</span>
-                        </div>
-                        <div id="importResult"></div>
-                    </div>
-                    <div class="config-section">
-                        <h3><i class="fas fa-trash-alt"></i> Gerenciar Dados</h3>
-                        <button id="clearAllDataBtn" class="btn-danger"><i class="fas fa-exclamation-triangle"></i> Limpar Todos os Registros</button>
-                        <p class="info-text">Ação irreversível. Remove todas as viagens e motoristas agregados.</p>
-                    </div>
-                </div>
-                <div class="config-card">
-                    <h3><i class="fas fa-info-circle"></i> Colunas importadas</h3>
-                    <div class="columns-list">
-                        <span>Identificador/Placa</span>
-                        <span>Início</span>
-                        <span>Fim</span>
-                        <span>Tempo de Motor Ligado</span>
-                        <span>Distância (Km)</span>
-                        <span>Vel. Max (Seca)</span>
-                        <span>Vel. Max (Molhada)</span>
-                        <span>Velocidade Média</span>
-                        <span>Km/l</span>
-                        <span>Total Litros Consumido</span>
-                        <span>Tempo de Condução (%)</span>
-                        <span>Tempo Parado (%)</span>
-                        <span>Tempo de Condução</span>
-                        <span>Tempo Parado</span>
-                        <span>Odômetro Inicial</span>
-                        <span>Odômetro Final</span>
-                        <span>Motorista</span>
-                        <span>CPF</span>
-                        <span>Qtde. de acionamento do pedal de freio</span>
-                        <span>Distância com o pedal de freio pressionado</span>
+                        <div id="importStatus" class="import-status" style="display: none;"></div>
+                        <div id="importLog" class="import-log"></div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <script src="supabase-config.js"></script>
-    <script src="app.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
