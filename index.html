@@ -25,8 +25,8 @@
                     <span>Dashboard Principal</span>
                 </a>
                 <a href="#" class="nav-item" data-page="consumo-evolution">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Histórico de Evolução</span>
+                    <i class="fas fa-list-alt"></i>
+                    <span>Histórico Detalhado</span>
                 </a>
                 <a href="#" class="nav-item" data-page="configuracoes">
                     <i class="fas fa-sliders-h"></i>
@@ -34,7 +34,7 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <p>Versão 3.0 Dark</p>
+                <p>Versão 3.1 Dark Pro</p>
             </div>
         </aside>
         
@@ -54,18 +54,23 @@
             
             <div class="content-area" id="contentArea">
                 
-                <!-- GLOBAL FILTERS (Persistent for Dashboard and Evolution) -->
+                <!-- GLOBAL FILTERS -->
                 <div class="global-filters" id="globalFilters">
-                    <div class="filter-group">
-                        <label><i class="far fa-calendar-alt"></i> Período</label>
-                        <select id="dateFilter">
-                            <option value="d-1">Ontem (D-1)</option>
-                            <option value="d-2">Últimos 2 dias (D-2)</option>
-                            <option value="d-7">Últimos 7 dias (D-7)</option>
-                            <option value="d-30" selected>Últimos 30 dias (D-30)</option>
-                            <option value="week">Semana Atual</option>
-                            <option value="month">Mês Atual</option>
-                        </select>
+                    <div class="filter-group" style="flex: 1.5;">
+                        <label><i class="far fa-calendar-alt"></i> Período de Análise</label>
+                        <div style="display: flex; gap: 8px;">
+                            <select id="dateFilter">
+                                <option value="today">Hoje</option>
+                                <option value="d-1">Ontem (D-1)</option>
+                                <option value="d-2">Últimos 2 dias (D-2)</option>
+                                <option value="d-7">Últimos 7 dias (D-7)</option>
+                                <option value="d-30" selected>Últimos 30 dias (D-30)</option>
+                                <option value="week">Semana Atual</option>
+                                <option value="month">Mês Atual</option>
+                                <option value="custom">Data Específica</option>
+                            </select>
+                            <input type="date" id="customDateInput" class="filter-input" style="display: none;">
+                        </div>
                     </div>
                     <div class="filter-group">
                         <label><i class="fas fa-filter"></i> Visão de Entidade</label>
@@ -86,8 +91,6 @@
 
                 <!-- Dashboard Page -->
                 <div id="dashboardPage" class="page active">
-                    
-                    <!-- Top KPI Cards -->
                     <div class="stats-grid">
                         <div class="stat-card highlight-card">
                             <div class="stat-icon"><i class="fas fa-gas-pump"></i></div>
@@ -114,14 +117,12 @@
                         <div class="stat-card">
                             <div class="stat-icon"><i class="fas fa-truck-ramp-box"></i></div>
                             <div class="stat-info">
-                                <h3>Viagens/24h Média</h3>
-                                <p id="avgTripsPerDay">--</p>
-                                <small>Meta: 2 por ciclo</small>
+                                <h3>Viagens Consolidadas</h3>
+                                <p id="totalTripsInfo">--</p>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Charts Row 1 -->
                     <div class="charts-row">
                         <div class="chart-card">
                             <h3><i class="fas fa-medal"></i> Desempenho por Motorista</h3>
@@ -137,7 +138,6 @@
                         </div>
                     </div>
 
-                    <!-- Charts Row 2 -->
                     <div class="charts-row">
                         <div class="chart-card full-width">
                             <h3><i class="fas fa-stopwatch"></i> Eficiência de Motor (Condução vs Ocioso)</h3>
@@ -147,7 +147,6 @@
                         </div>
                     </div>
                     
-                    <!-- Tables Row -->
                     <div class="tables-row">
                         <div class="table-card danger-table">
                             <h3><i class="fas fa-user-times"></i> Motoristas Críticos (< 1.80 KM/L)</h3>
@@ -179,13 +178,36 @@
                     </div>
                 </div>
                 
-                <!-- Evolução de Consumo Page -->
+                <!-- Histórico Detalhado Page -->
                 <div id="consumoEvolutionPage" class="page">
                     <div class="chart-card full-width" style="margin-bottom: 24px;">
                         <h3><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
-                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Esta visão obedece aos filtros globais de período e entidade selecionados no topo da página.</p>
-                        <div class="chart-container" style="height: 450px;">
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Esta visão obedece aos filtros globais de período e entidade (Motorista/Placa) selecionados no topo.</p>
+                        <div class="chart-container" style="height: 350px;">
                             <canvas id="evolutionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Nova Tabela de Registro Diário/Histórico -->
+                    <div class="table-card full-width">
+                        <h3><i class="fas fa-route"></i> Registro de Viagens (Período Selecionado)</h3>
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Listagem completa de todas as viagens consolidadas que compõem os cálculos atuais.</p>
+                        <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                            <table id="historyTable">
+                                <thead style="position: sticky; top: 0; z-index: 10;">
+                                    <tr>
+                                        <th>Início</th>
+                                        <th>Fim</th>
+                                        <th>Equipamento</th>
+                                        <th>Motorista</th>
+                                        <th>Distância</th>
+                                        <th>KM/L</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    <tr><td colspan="6" class="text-center">Aguardando dados...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -194,7 +216,7 @@
                 <div id="configuracoesPage" class="page">
                     <div class="config-card">
                         <h2><i class="fas fa-database"></i> Motor de Importação Inteligente</h2>
-                        <p>Envie relatórios CSV. O sistema limpará duplicatas e ignorará placas de apoio administrativas automaticamente.</p>
+                        <p>Envie relatórios CSV. O sistema limpará duplicatas, consolidará as viagens e ignorará viagens menores que 10km.</p>
                         
                         <div class="upload-area" id="uploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
