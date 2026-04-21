@@ -5,6 +5,8 @@ let supabaseClient = null;
 
 // ==================== ESTADO GLOBAL DA APLICAÇÃO ==================== 
 let currentMetaKML = 1.80; 
+let currentMetaViagens = 2.0; // NOVO: Meta de viagens diárias
+
 const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008']; 
 
 let rawData = []; 
@@ -13,18 +15,15 @@ let dashboardData = {
     drivers: [], trucks: [], alerts: [], criticalDrivers: [] 
 }; 
 
-// Variáveis de Gráficos (Chart.js)
 let driverChart = null, truckChart = null, timeChart = null, evolutionChart = null; 
 let currentPage = 'dashboard'; 
 
-// Variáveis de Importação
 let isImporting = false; 
 let importStats = { 
     total_linhas_lidas: 0, trechos_sem_motorista: 0, placas_ignoradas: 0, 
     viagens_curtas: 0, viagens_consolidadas_salvas: 0, erros: 0 
 }; 
 
-// Inicializa a conexão
 function initSupabase() {     
     if (!supabaseClient && window.supabase) {         
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);         

@@ -1,4 +1,4 @@
-// ==================== INICIALIZAÇÃO E LÓGICA CENTRAL ==================== 
+// ==================== CÉREBRO DA APLICAÇÃO (CÁLCULOS E INTEGRAÇÃO) ==================== 
 
 document.addEventListener('DOMContentLoaded', () => {     
     if (!initSupabase()) { console.error('Erro de Supabase'); return; }     
@@ -19,52 +19,63 @@ async function loadMetaFromDB() {
     try {
         const { data, error } = await supabaseClient
             .from('configuracoes')
-            .select('valor')
-            .eq('chave', 'meta_kml')
-            .single();
+            .select('chave, valor')
+            .in('chave', ['meta_kml', 'meta_viagens_dia']);
 
         if (error) throw error;
         
-        if (data && data.valor) {
-            currentMetaKML = parseFloat(data.valor);
+        if (data && data.length > 0) {
+            data.forEach(item => {
+                if (item.chave === 'meta_kml') currentMetaKML = parseFloat(item.valor);
+                if (item.chave === 'meta_viagens_dia') currentMetaViagens = parseFloat(item.valor);
+            });
+            
             document.getElementById('metaInput').value = currentMetaKML.toFixed(2);
+            const viagInput = document.getElementById('metaViagensInput');
+            if(viagInput) viagInput.value = currentMetaViagens.toFixed(1);
+            
             updateMetaTexts();
         }
     } catch (e) {
-        console.warn('Usando meta padrão local (tabela configuracoes vazia).');
+        console.warn('Usando metas padrão local (tabela configuracoes vazia ou erro).');
     }
 }
 
 function initSettingsModule() {
     document.getElementById('saveMetaBtn').addEventListener('click', async () => {
-        const val = parseFloat(document.getElementById('metaInput').value);
+        const valKml = parseFloat(document.getElementById('metaInput').value);
+        const valViag = parseFloat(document.getElementById('metaViagensInput').value);
         const btn = document.getElementById('saveMetaBtn');
 
-        if(val && val > 0) {
+        if(valKml > 0 && valViag > 0) {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
             btn.disabled = true;
 
             try {
                 const { error } = await supabaseClient
                     .from('configuracoes')
-                    .upsert({ chave: 'meta_kml', valor: val.toString(), atualizado_em: new Date().toISOString() });
+                    .upsert([
+                        { chave: 'meta_kml', valor: valKml.toString(), atualizado_em: new Date().toISOString() },
+                        { chave: 'meta_viagens_dia', valor: valViag.toString(), atualizado_em: new Date().toISOString() }
+                    ]);
 
                 if (error) throw error;
 
-                currentMetaKML = val;
+                currentMetaKML = valKml;
+                currentMetaViagens = valViag;
                 updateMetaTexts();
                 if(rawData.length > 0) processFilteredData(); 
                 
-                alert(`A régua de meta foi salva na nuvem: ${val.toFixed(2)} KM/L`);
+                alert(`Parâmetros salvos: KML=${valKml.toFixed(2)} | Viagens/Dia=${valViag.toFixed(1)}`);
             } catch (e) {
                 alert('Erro ao salvar meta no banco de dados. Verifique o console.');
                 console.error(e);
             } finally {
-                btn.innerHTML = '<i class="fas fa-save"></i> Salvar Parâmetro';
+                btn.innerHTML = '<i class="fas fa-save"></i> Salvar Parâmetros';
                 btn.disabled = false;
             }
         } else {
-            alert('Por favor, insira um valor válido.');
+            alert('Por favor, insira valores válidos maiores que zero.');
         }
     });
 }
@@ -103,7 +114,7 @@ function initGlobalFilters() {
     applyBtn.addEventListener('click', () => {
         applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
         loadCoreData().then(() => {
-            applyBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Atualizar Dados';
+            applyBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Filtrar';
         });
     });
 }
@@ -122,7 +133,7 @@ function getDateBoundaries() {
         start = new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0);
         end = new Date(parts[0], parts[1]-1, parts[2], 23, 59, 59);
     } else if (val === 'today') {
-        // Nada muda, já está em hoje
+        // Nada muda
     } else if (val === 'd-1') {
         start.setDate(start.getDate() - 1);
         end.setDate(end.getDate() - 1);
@@ -216,7 +227,6 @@ function calculateMetrics(viagens) {
             globalDist += dist;
             globalLitros += litros;
 
-            // ADICIONADO: 'trips' para contar quantas viagens o motorista fez
             const dName = v.motorista || 'Indefinido';
             if (!driverMap.has(dName)) driverMap.set(dName, { dist: 0, litros: 0, trips: 0 });
             driverMap.get(dName).dist += dist; 
@@ -234,7 +244,6 @@ function calculateMetrics(viagens) {
     dashboardData.totalFuel = globalLitros;
     dashboardData.avgConsumption = globalLitros > 0 ? (globalDist / globalLitros) : 0;          
     
-    // ADICIONADO: exportar 'trips' pro dashboardData
     dashboardData.drivers = Array.from(driverMap.entries())
         .map(([name, data]) => ({ name, dist: data.dist, realKML: data.litros > 0 ? data.dist / data.litros : 0, trips: data.trips }))
         .sort((a, b) => b.realKML - a.realKML);
@@ -261,7 +270,7 @@ function calculateMetrics(viagens) {
         sumTrips += avg; active++;
 
         if (t.realKML < currentMetaKML && t.realKML > 0) dashboardData.alerts.push({ placa: t.plate, trips: avg.toFixed(1), issue: 'Alto Consumo' });
-        else if (avg < 2) dashboardData.alerts.push({ placa: t.plate, trips: avg.toFixed(1), issue: 'Baixa Rodagem' });
+        else if (avg < currentMetaViagens) dashboardData.alerts.push({ placa: t.plate, trips: avg.toFixed(1), issue: 'Baixa Rodagem' });
     });          
 
     dashboardData.avgTripsPerDay = active > 0 ? (sumTrips / active) : 0;

@@ -23,6 +23,8 @@ function initNavigation() {
             const pageNames = { 'dashboard': 'Visão Geral da Frota', 'consumo-evolution': 'Histórico Detalhado', 'configuracoes': 'Gerenciamento de Dados' };             
             if (pageTitle) pageTitle.textContent = pageNames[pageId] || 'CCOL_SISTEMA';             
             currentPage = pageId;             
+            
+            document.getElementById('globalFilters').style.display = (pageId === 'configuracoes') ? 'none' : 'flex';
         });     
     }); 
 }
@@ -39,6 +41,9 @@ function updateMetaTexts() {
     
     const crit = document.getElementById('criticalDriversTitle');
     if(crit) crit.innerHTML = `<i class="fas fa-user-times"></i> Motoristas Críticos (< ${currentMetaKML.toFixed(2)} KM/L)`;
+
+    const lblViag = document.getElementById('metaLabelViagens');
+    if(lblViag) lblViag.innerText = `Meta: ${currentMetaViagens.toFixed(1)} por dia`;
 }
 
 function updateStatsCards() {     
@@ -57,7 +62,6 @@ function updateStatsCards() {
 
 function renderTables(viagens) {     
     
-    // Tabela: Ranking Geral
     const rBody = document.getElementById('rankingTableBody');
     if (rBody) {
         if (dashboardData.drivers.length === 0) {
@@ -88,21 +92,18 @@ function renderTables(viagens) {
         }
     }
 
-    // Tabela: Motoristas Críticos
     const dBody = document.getElementById('driversTableBody');
     if (dBody) {
         if (dashboardData.criticalDrivers.length === 0) dBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Excelente. Sem motoristas na zona vermelha.</td></tr>';
         else dBody.innerHTML = dashboardData.criticalDrivers.slice(0, 10).map(d => `<tr><td style="font-weight:600;">${d.name}</td><td class="text-danger">${d.realKML.toFixed(2)}</td><td>${Math.round(d.dist)}</td></tr>`).join('');
     }
 
-    // Tabela: Alertas de Equipamentos
     const aBody = document.getElementById('alertsTableBody');     
     if (aBody) {
         if (dashboardData.alerts.length === 0) aBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Nenhum alerta de frota pendente.</td></tr>'; 
-        else aBody.innerHTML = dashboardData.alerts.slice(0, 10).map(a => `<tr><td style="font-weight: 600;">${a.placa}</td><td class="${parseFloat(a.trips) < 2 ? 'text-warning' : ''}">${a.trips}</td><td><span class="status-badge ${a.issue === 'Alto Consumo' ? 'danger' : 'warning'}">${a.issue}</span></td></tr>`).join(''); 
+        else aBody.innerHTML = dashboardData.alerts.slice(0, 10).map(a => `<tr><td style="font-weight: 600;">${a.placa}</td><td class="${parseFloat(a.trips) < currentMetaViagens ? 'text-warning' : ''}">${a.trips}</td><td><span class="status-badge ${a.issue === 'Alto Consumo' ? 'danger' : 'warning'}">${a.issue}</span></td></tr>`).join(''); 
     }
 
-    // Tabela: Histórico Detalhado
     const hBody = document.getElementById('historyTableBody');
     if (hBody) {
         const formatDT = (iso) => {
