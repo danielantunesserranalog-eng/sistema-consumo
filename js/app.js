@@ -3,6 +3,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     if (!initSupabase()) { console.error('Erro de Supabase'); return; }
     
+    renderMenu();
+    
     initNavigation();
     initMenuToggle();
     initImportModule();

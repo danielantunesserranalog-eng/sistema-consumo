@@ -20,8 +20,8 @@ function initNavigation() {
             const targetPage = document.getElementById(`${pageId}Page`);
             if (targetPage) targetPage.classList.add('active');
             
-            const pageNames = { 'dashboard': 'Visão Geral da Frota', 'consumo-evolution': 'Histórico Detalhado', 'configuracoes': 'Gerenciamento de Dados' };
-            if (pageTitle) pageTitle.textContent = pageNames[pageId] || 'CCOL_SISTEMA';
+            // Busca o título dinamicamente do menu.js
+            if (pageTitle) pageTitle.textContent = getPageTitle(pageId);
             currentPage = pageId;
             
             document.getElementById('globalFilters').style.display = (pageId === 'configuracoes') ? 'none' : 'flex';
