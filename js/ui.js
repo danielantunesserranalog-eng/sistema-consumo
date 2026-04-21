@@ -157,20 +157,19 @@ function renderTables(viagens) {
         }
     }
 
-    // Chama a renderização do novo Pódio!
     renderPodium();
 }
 
-// ======== NOVA LÓGICA DO PÓDIO (MOTORISTA DESTAQUE) ========
+// ======== LÓGICA DO PÓDIO (MOTORISTA DESTAQUE) ========
 function renderPodium() {
     const podiumContainer = document.getElementById('podiumContainer');
     if (!podiumContainer) return;
 
-    // Filtramos motoristas válidos (KM/L > 0) e pegamos os 3 melhores
-    const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0).slice(0, 3);
+    // REGRA NOVA: KM/L > 0 E Distância > 1000 km
+    const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0 && d.dist > 1000).slice(0, 3);
 
     if (topDrivers.length === 0) {
-        podiumContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Nenhum dado com KM/L válido para gerar o pódio.</div>';
+        podiumContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Nenhum motorista atingiu a distância mínima de 1.000 KM no período selecionado.</div>';
         return;
     }
 
@@ -206,7 +205,7 @@ function renderPodium() {
                 <div class="podium-stats">
                     <div class="p-stat">
                         <span>Distância</span>
-                        <strong>${Math.round(d.dist)} km</strong>
+                        <strong>${Math.round(d.dist).toLocaleString('pt-BR')} km</strong>
                     </div>
                     <div class="p-stat">
                         <span>Viagens</span>
@@ -348,7 +347,6 @@ function showEmptyDashboard() {
     if(document.getElementById('avgTripsPerDay')) document.getElementById('avgTripsPerDay').innerText = '--/dia';
     if(document.getElementById('centerEficiencia')) document.getElementById('centerEficiencia').innerText = '--%';
     
-    // Zera o pódio também caso não haja dados
     const pContainer = document.getElementById('podiumContainer');
     if (pContainer) pContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Sem dados para gerar o pódio.</div>';
     
