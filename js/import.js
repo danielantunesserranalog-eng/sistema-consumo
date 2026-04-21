@@ -5,16 +5,20 @@ function initImportModule() {
     const fileInput = document.getElementById('csvFileInput');     
     const selectBtn = document.getElementById('selectFilesBtn');     
     if (!uploadArea) return;     
+    
     uploadArea.addEventListener('click', () => fileInput?.click());     
     if (selectBtn) selectBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput?.click(); });     
+    
     uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#3b82f6'; });     
     uploadArea.addEventListener('dragleave', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#475569'; });     
+    
     uploadArea.addEventListener('drop', async (e) => { 
         e.preventDefault(); 
         uploadArea.style.borderColor = '#475569'; 
         const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv')); 
         if (files.length) await processFiles(files); 
     });     
+    
     if (fileInput) fileInput.addEventListener('change', async (e) => { 
         const files = Array.from(e.target.files); 
         if (files.length) await processFiles(files); 
@@ -120,8 +124,18 @@ function mapRawSegment(row) {
         if (!inicio || !fim) return null; 
 
         const distancia_km = parseFloat(String(getResilientValue(row, ['Distância (Km)']) || '0').replace(',', '.'));
-        const km_l = parseFloat(String(getResilientValue(row, ['Km/l', 'KM/L']) || '0').replace(',', '.'));
-        const litros = (distancia_km > 0 && km_l > 0) ? (distancia_km / km_l) : 0;
+        
+        // NOVIDADE ESTRATÉGICA: Lê o Total de Litros exato entregue pelo rastreador!
+        const litrosStr = getResilientValue(row, ['Total Litros Consumido', 'Total Litros']);
+        let litros = 0;
+        
+        if (litrosStr !== undefined && litrosStr !== null && litrosStr !== '') {
+            litros = parseFloat(String(litrosStr).replace(',', '.'));
+        } else {
+            // Fallback de segurança: Se a coluna sumir do CSV, ele calcula reversamente pelo KM/L.
+            const km_l = parseFloat(String(getResilientValue(row, ['Km/l', 'KM/L']) || '0').replace(',', '.'));
+            litros = (distancia_km > 0 && km_l > 0) ? (distancia_km / km_l) : 0;
+        }
         
         return {             
             placa, motorista, inicio, fim, 
@@ -135,7 +149,7 @@ function mapRawSegment(row) {
 }
 
 function consolidateTrips(rawSegments) {
-    addToImportLog(`Costurando trechos fracionados...`, 'info');
+    addToImportLog(`Costurando trechos fracionados e apurando litros exatos...`, 'info');
     
     rawSegments.sort((a, b) => {
         if (a.placa !== b.placa) return a.placa.localeCompare(b.placa);
