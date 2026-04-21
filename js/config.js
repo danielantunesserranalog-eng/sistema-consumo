@@ -7,7 +7,7 @@ let supabaseClient = null;
 let currentMetaKML = 1.80; 
 let currentMetaViagens = 2.0; 
 
-const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008']; 
+const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008', 'RBJ6J29']; 
 
 let rawData = []; 
 let dashboardData = { 
