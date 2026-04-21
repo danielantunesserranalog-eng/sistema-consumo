@@ -4,11 +4,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null; 
 let isImporting = false; 
 
-// Adicionado 'short_trips' para contar quantas viagens curtas foram barradas
-let importStats = { total: 0, inserted: 0, excluded: 0, short_trips: 0, errors: 0 }; 
+// Estatísticas de importação aprimoradas
+let importStats = { total_linhas_lidas: 0, trechos_sem_motorista: 0, placas_ignoradas: 0, viagens_curtas: 0, viagens_consolidadas_salvas: 0, erros: 0 }; 
 
 // Variáveis de Estado Global
-let rawData = []; // Armazena em cache para cálculos rápidos
+let rawData = []; 
 let driverChart = null, truckChart = null, timeChart = null, evolutionChart = null; 
 let currentPage = 'dashboard'; 
 let dashboardData = { avgConsumption: 0, totalDist: 0, totalFuel: 0, avgTripsPerDay: 0, drivers: [], trucks: [], alerts: [], criticalDrivers: [] }; 
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initImportModule();   
     initDeleteModule(); 
     initGlobalFilters();
-    loadCoreData(); // Dispara o carregamento inicial
+    loadCoreData(); 
 });
 
 function initNavigation() {     
@@ -59,7 +59,6 @@ function initNavigation() {
             if (pageTitle) pageTitle.textContent = pageNames[pageId] || 'SISTEMA_CONSUMO';             
             currentPage = pageId;             
             
-            // Oculta filtros globais na aba de config
             document.getElementById('globalFilters').style.display = (pageId === 'configuracoes') ? 'none' : 'flex';
         });     
     }); 
@@ -106,8 +105,8 @@ function getStartDateISO() {
         case 'd-2': d.setDate(d.getDate() - 2); break;
         case 'd-7': d.setDate(d.getDate() - 7); break;
         case 'd-30': d.setDate(d.getDate() - 30); break;
-        case 'week': d.setDate(d.getDate() - d.getDay()); break; // Domingo desta semana
-        case 'month': d.setDate(1); break; // Dia 1 do mes
+        case 'week': d.setDate(d.getDate() - d.getDay()); break; 
+        case 'month': d.setDate(1); break; 
     }
     return d.toISOString();
 }
@@ -128,7 +127,6 @@ async function loadCoreData() {
         rawData = data || [];
         if (rawData.length === 0) { showEmptyDashboard(); return; }
 
-        // Recarrega dropdown se necessário
         const typeSelect = document.getElementById('entityType').value;
         if (typeSelect !== 'all') populateEntityDropdown(typeSelect);
 
@@ -354,7 +352,7 @@ function renderEvolutionChartLogic(viagens, type, value) {
 }
 
 
-// ==================== IMPORTAÇÃO E FILTRO ANTI-ERRO (NOVO) ==================== 
+// ==================== MOTOR DE IMPORTAÇÃO (COSTURA DE VIAGENS) ==================== 
 function initImportModule() {     
     const uploadArea = document.getElementById('uploadArea');     
     const fileInput = document.getElementById('csvFileInput');     
@@ -380,49 +378,59 @@ function initImportModule() {
 async function processFiles(files) {     
     if (isImporting) { showImportStatus('warning', 'Importação em andamento...'); return; }     
     isImporting = true;     
-    // Adicionado short_trips para mapear viagens < 10km descartadas
-    importStats = { total: 0, inserted: 0, excluded: 0, short_trips: 0, errors: 0 };     
+    
+    importStats = { total_linhas_lidas: 0, trechos_sem_motorista: 0, placas_ignoradas: 0, viagens_curtas: 0, viagens_consolidadas_salvas: 0, erros: 0 };     
     clearImportLog();     
-    showImportStatus('info', `Processando arquivo(s)...`);          
+    showImportStatus('info', `Iniciando inteligência de agrupamento de dados...`);          
     
     for (const file of files) {         
-        addToImportLog(`Lendo CSV: ${file.name}`, 'info');         
+        addToImportLog(`Extraindo: ${file.name}`, 'info');         
         const startTime = performance.now();         
         try {             
-            const data = await parseCSVFast(file);             
-            if (!data.length) { addToImportLog(`Nenhum dado válido.`, 'warning'); continue; }             
+            // 1. Extrai trechos brutos (raw)
+            const rawSegments = await extractRawSegments(file);             
+            if (!rawSegments.length) { addToImportLog(`Nenhum trecho válido encontrado.`, 'warning'); continue; }             
             
-            await batchInsertSupabase(data);             
+            // 2. Agrupa os trechos consecutivos num mesmo motorista/veículo
+            const consolidatedTrips = consolidateTrips(rawSegments);
+
+            if (consolidatedTrips.length === 0) {
+                addToImportLog(`Após agrupar, nenhuma viagem superou 10km.`, 'warning'); continue; 
+            }
+
+            // 3. Salva no banco de dados (ignorando o que já existe)
+            await batchInsertSupabase(consolidatedTrips);             
             
             const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);             
-            addToImportLog(`${file.name} finalizado. (${elapsed}s)`, 'success');         
+            addToImportLog(`Arquivo finalizado. (${elapsed}s)`, 'success');         
         } catch (error) { 
             addToImportLog(`Erro: ${error.message}`, 'error'); 
         }     
     }          
     
     isImporting = false;     
-    const summary = `Feito! Lidas: ${importStats.total} | Novas BD: ${importStats.inserted} | Curtas (<10km): ${importStats.short_trips} | Repetidas/Apoio: ${importStats.excluded}`;     
+    const summary = `Concluído! Trechos lidos: ${importStats.total_linhas_lidas} | Viagens Úteis Geradas: ${importStats.viagens_consolidadas_salvas} <br> <small style="color:#94a3b8">Descartes: ${importStats.trechos_sem_motorista} sem motorista | ${importStats.placas_ignoradas} placas apoio | ${importStats.viagens_curtas} rotas curtas (<10km)</small>`;     
     showImportStatus('success', summary);          
     
-    if (importStats.inserted > 0) {         
+    if (importStats.viagens_consolidadas_salvas > 0) {         
         addToImportLog('Atualizando dashboard...', 'info');         
-        setTimeout(() => { document.getElementById('applyFilterBtn').click(); }, 1000);     
+        setTimeout(() => { document.getElementById('applyFilterBtn').click(); }, 1500);     
     } 
 }
 
-function parseCSVFast(file) {     
+function extractRawSegments(file) {     
     return new Promise((resolve, reject) => {         
-        const results = [];         
+        const segments = [];         
         Papa.parse(file, {             
             header: true, delimiter: ';', skipEmptyLines: true, encoding: "ISO-8859-1", chunkSize: 1024 * 1024,             
             step: (row) => {                 
-                const mapped = mapRowFast(row.data);                 
-                if (mapped === 'excluded') { importStats.excluded++; importStats.total++; } 
-                else if (mapped === 'short_trip') { importStats.short_trips++; importStats.total++; }
-                else if (mapped) { results.push(mapped); importStats.total++; }             
+                importStats.total_linhas_lidas++;
+                const mapped = mapRawSegment(row.data);                 
+                if (mapped === 'ignored_plate') { importStats.placas_ignoradas++; } 
+                else if (mapped === 'ignored_driver') { importStats.trechos_sem_motorista++; }
+                else if (mapped) { segments.push(mapped); }             
             },             
-            complete: () => resolve(results),             
+            complete: () => resolve(segments),             
             error: (error) => reject(new Error(`Leitura: ${error.message}`))         
         });     
     }); 
@@ -438,25 +446,22 @@ function getResilientValue(row, possibleKeys) {
     return undefined;
 }
 
-function mapRowFast(row) {     
+function mapRawSegment(row) {     
     try {         
         const placa = String(getResilientValue(row, ['Identificador/Placa', 'Placa', 'Identificador']) || '').trim().toUpperCase();         
         if (!placa) return null;
-        if (PLACAS_IGNORADAS.includes(placa)) return 'excluded'; 
+        if (PLACAS_IGNORADAS.includes(placa)) return 'ignored_plate'; 
 
-        // EXTRAIR DISTÂNCIA E BARRAR VIAGENS MENORES QUE 10 KM
-        const distanciaStr = getResilientValue(row, ['Distância (Km)', 'Distancia', 'Dist ncia (Km)']);
-        const distancia_km = parseFloat(String(distanciaStr || '0').replace(',', '.'));
-        
-        if (distancia_km < 10) {
-            return 'short_trip'; // Retorna tag específica para contabilizar no log
-        }
+        const motorista = String(getResilientValue(row, ['Motorista', 'Operador']) || '').trim();
+        // Filtro crucial: ignorar motorista traço
+        if (motorista === '-' || motorista === '') return 'ignored_driver';
 
-        const parseDate = (str) => {             
+        const parseDateObj = (str) => {             
             if (!str) return null;             
             const p = str.split(' '); if (p.length !== 2) return null;             
             const d = p[0].split('/'); if (d.length !== 3) return null;             
-            return `${d[2]}-${d[1]}-${d[0]} ${p[1]}`;         
+            const t = p[1].split(':');
+            return new Date(d[2], d[1] - 1, d[0], t[0], t[1], t[2] || 0);         
         };         
         
         const parseDuration = (str) => {             
@@ -467,61 +472,129 @@ function mapRowFast(row) {
             return sec;         
         };         
         
-        const inicio = parseDate(getResilientValue(row, ['Início', 'Inicio']));         
-        const fim = parseDate(getResilientValue(row, ['Fim']));         
+        const inicio = parseDateObj(getResilientValue(row, ['Início', 'Inicio']));         
+        const fim = parseDateObj(getResilientValue(row, ['Fim']));         
         if (!inicio || !fim) return null; 
+
+        const distancia_km = parseFloat(String(getResilientValue(row, ['Distância (Km)']) || '0').replace(',', '.'));
+        const km_l = parseFloat(String(getResilientValue(row, ['Km/l', 'KM/L']) || '0').replace(',', '.'));
+        const litros = (distancia_km > 0 && km_l > 0) ? (distancia_km / km_l) : 0;
         
         return {             
-            placa, motorista: String(getResilientValue(row, ['Motorista', 'Operador']) || 'Indefinido').trim(),             
-            inicio, fim, local_inicial: String(getResilientValue(row, ['Local inicial']) || '').trim(), local_final: String(getResilientValue(row, ['Local final']) || '').trim(),             
+            placa, 
+            motorista,             
+            inicio, 
+            fim, 
+            local_inicial: String(getResilientValue(row, ['Local inicial']) || '').trim(), 
+            local_final: String(getResilientValue(row, ['Local final']) || '').trim(),             
             distancia_km: distancia_km,             
-            km_l: parseFloat(String(getResilientValue(row, ['Km/l', 'KM/L']) || '0').replace(',', '.')),             
-            tempo_conducao: `${parseDuration(getResilientValue(row, ['Tempo de Condução']))} seconds`,             
-            tempo_parado: `${parseDuration(getResilientValue(row, ['Tempo Parado']))} seconds`         
+            litros_gastos: litros,             
+            tempo_conducao_sec: parseDuration(getResilientValue(row, ['Tempo de Condução'])),             
+            tempo_parado_sec: parseDuration(getResilientValue(row, ['Tempo Parado']))         
         };     
     } catch (e) { return null; } 
 }
 
-async function batchInsertSupabase(viagens) {     
-    const viagensUnicas = []; const chavesVistas = new Set();
-    let minDate = viagens[0].inicio; let maxDate = viagens[0].inicio;
+function consolidateTrips(rawSegments) {
+    addToImportLog(`Costurando trechos fracionados...`, 'info');
+    
+    // Ordena por placa, depois por motorista, depois por tempo de início
+    rawSegments.sort((a, b) => {
+        if (a.placa !== b.placa) return a.placa.localeCompare(b.placa);
+        return a.inicio - b.inicio;
+    });
 
-    for (const v of viagens) {
-        const normInicio = v.inicio.replace('T', ' ').split('.')[0];
-        const chave = `${v.placa}_${normInicio}`; 
-        if (!chavesVistas.has(chave)) {
-            chavesVistas.add(chave); viagensUnicas.push(v);
-            if (normInicio < minDate) minDate = normInicio;
-            if (normInicio > maxDate) maxDate = normInicio;
-        } else { importStats.excluded++; }
+    const consolidated = [];
+    let currentTrip = null;
+
+    // Helper para converter objeto Date para o formato String do BD
+    const formatDBDate = (d) => {
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+
+    const closeAndSaveTrip = (trip) => {
+        if (trip.distancia_km >= 10) { // REGRA DE NEGÓCIO: Só salva >= 10km
+            const km_l_final = trip.litros_gastos > 0 ? (trip.distancia_km / trip.litros_gastos) : 0;
+            
+            consolidated.push({
+                placa: trip.placa,
+                motorista: trip.motorista,
+                inicio: formatDBDate(trip.inicio),
+                fim: formatDBDate(trip.fim),
+                local_inicial: trip.local_inicial,
+                local_final: trip.local_final,
+                distancia_km: +(trip.distancia_km).toFixed(2),
+                km_l: +(km_l_final).toFixed(2),
+                tempo_conducao: `${trip.tempo_conducao_sec} seconds`,
+                tempo_parado: `${trip.tempo_parado_sec} seconds`
+            });
+        } else {
+            importStats.viagens_curtas++;
+        }
+    };
+
+    for (let i = 0; i < rawSegments.length; i++) {
+        const seg = rawSegments[i];
+
+        if (!currentTrip) {
+            currentTrip = { ...seg };
+        } else if (currentTrip.placa === seg.placa && currentTrip.motorista === seg.motorista) {
+            // É a mesma viagem continuando! Acumula os dados.
+            currentTrip.fim = seg.fim > currentTrip.fim ? seg.fim : currentTrip.fim;
+            currentTrip.local_final = seg.local_final || currentTrip.local_final;
+            currentTrip.distancia_km += seg.distancia_km;
+            currentTrip.litros_gastos += seg.litros_gastos;
+            currentTrip.tempo_conducao_sec += seg.tempo_conducao_sec;
+            currentTrip.tempo_parado_sec += seg.tempo_parado_sec;
+        } else {
+            // Mudou de caminhão ou de motorista. Fecha a viagem atual e começa outra.
+            closeAndSaveTrip(currentTrip);
+            currentTrip = { ...seg };
+        }
     }
+    
+    // Salva a última que ficou no buffer
+    if (currentTrip) closeAndSaveTrip(currentTrip);
 
-    addToImportLog(`Checando BD para evitar duplicatas (evita erro 400)...`, 'info');
+    return consolidated;
+}
+
+async function batchInsertSupabase(viagensParaInserir) {     
+    
+    let minDate = viagensParaInserir[0].inicio; 
+    let maxDate = viagensParaInserir[0].inicio;
+    
+    viagensParaInserir.forEach(v => {
+        if (v.inicio < minDate) minDate = v.inicio;
+        if (v.inicio > maxDate) maxDate = v.inicio;
+    });
+
+    addToImportLog(`Checando BD para evitar duplicatas...`, 'info');
     const { data: dbViagens, error: dbError } = await supabaseClient
         .from('viagens').select('placa, inicio').gte('inicio', minDate).lte('inicio', maxDate).limit(100000);
 
-    if (dbError) throw new Error('Falha ao checar duplicatas.');
+    if (dbError) throw new Error('Falha ao checar duplicatas no banco.');
 
-    const bdSet = new Set((dbViagens || []).map(v => `${v.placa}_${v.inicio.replace('T', ' ').split('.')[0]}`));
+    const bdSet = new Set((dbViagens || []).map(v => `${v.placa}_${v.inicio.split('.')[0]}`));
 
-    const viagensParaInserir = viagensUnicas.filter(v => {
-        const isNew = !bdSet.has(`${v.placa}_${v.inicio.replace('T', ' ').split('.')[0]}`);
-        if (!isNew) importStats.excluded++; 
+    const viagensLimpas = viagensParaInserir.filter(v => {
+        const isNew = !bdSet.has(`${v.placa}_${v.inicio}`);
         return isNew;
     });
 
-    if (viagensParaInserir.length === 0) {
-        addToImportLog(`Todas as viagens filtradas já constam no sistema.`, 'warning'); return;
+    if (viagensLimpas.length === 0) {
+        addToImportLog(`As viagens deste arquivo já constam no banco.`, 'warning'); return;
     }
 
-    addToImportLog(`Enviando ${viagensParaInserir.length} novas viagens válidas...`, 'info');
+    addToImportLog(`Enviando ${viagensLimpas.length} viagens estruturadas...`, 'info');
     const batchSize = 300; 
     
-    for (let i = 0; i < viagensParaInserir.length; i += batchSize) {         
-        const batch = viagensParaInserir.slice(i, i + batchSize);         
+    for (let i = 0; i < viagensLimpas.length; i += batchSize) {         
+        const batch = viagensLimpas.slice(i, i + batchSize);         
         const { error } = await supabaseClient.from('viagens').insert(batch);             
-        if (error) { importStats.errors += batch.length; } 
-        else { importStats.inserted += batch.length; }
+        if (error) { importStats.erros += batch.length; } 
+        else { importStats.viagens_consolidadas_salvas += batch.length; }
     }          
 }
 
