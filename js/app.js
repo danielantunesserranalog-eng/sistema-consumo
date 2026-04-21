@@ -1,5 +1,4 @@
-// ==================== 4. CÉREBRO DA APLICAÇÃO (CÁLCULOS E INTEGRAÇÃO) ==================== 
-
+// ==================== CÉREBRO DA APLICAÇÃO (CÁLCULOS E INTEGRAÇÃO) ==================== 
 document.addEventListener('DOMContentLoaded', () => {     
     if (!initSupabase()) { console.error('Erro de Supabase'); return; }     
     

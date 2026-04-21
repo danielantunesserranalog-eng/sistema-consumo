@@ -1,5 +1,4 @@
-// ==================== 3. MOTOR DE IMPORTAÇÃO E DELETE ==================== 
-
+// ==================== MOTOR DE IMPORTAÇÃO E DELETE ==================== 
 function initImportModule() {     
     const uploadArea = document.getElementById('uploadArea');     
     const fileInput = document.getElementById('csvFileInput');     
@@ -125,14 +124,12 @@ function mapRawSegment(row) {
 
         const distancia_km = parseFloat(String(getResilientValue(row, ['Distância (Km)']) || '0').replace(',', '.'));
         
-        // NOVIDADE ESTRATÉGICA: Lê o Total de Litros exato entregue pelo rastreador!
         const litrosStr = getResilientValue(row, ['Total Litros Consumido', 'Total Litros']);
         let litros = 0;
         
         if (litrosStr !== undefined && litrosStr !== null && litrosStr !== '') {
             litros = parseFloat(String(litrosStr).replace(',', '.'));
         } else {
-            // Fallback de segurança: Se a coluna sumir do CSV, ele calcula reversamente pelo KM/L.
             const km_l = parseFloat(String(getResilientValue(row, ['Km/l', 'KM/L']) || '0').replace(',', '.'));
             litros = (distancia_km > 0 && km_l > 0) ? (distancia_km / km_l) : 0;
         }

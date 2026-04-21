@@ -33,14 +33,14 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <p>Versão 5.0 Extreme</p>
+                <p>Versão 6.0 Modular PRO</p>
             </div>
         </aside>
         
         <!-- Main Content -->
         <main class="main-content">
             
-            <!-- TOP BAR UNIFICADA -->
+            <!-- TOP BAR UNIFICADA (Header + Filtros Globais) -->
             <header class="top-bar">
                 <div class="header-content">
                     <div class="header-left">
@@ -54,7 +54,7 @@
                     </div>
                 </div>
 
-                <!-- FILTROS CRUZADOS GLOBAIS -->
+                <!-- FILTROS CRUZADOS GLOBAIS NO TOPO -->
                 <div class="global-filters" id="globalFilters">
                     
                     <div class="filter-group">
@@ -95,7 +95,7 @@
                         </select>
                     </div>
 
-                    <button id="applyFilterBtn" class="btn-primary" title="Busca os dados do período selecionado no banco"><i class="fas fa-cloud-download-alt"></i> Buscar Dados</button>
+                    <button id="applyFilterBtn" class="btn-primary" title="Busca os dados no banco"><i class="fas fa-cloud-download-alt"></i> Buscar Dados</button>
                 </div>
             </header>
             
@@ -122,7 +122,7 @@
                         <div class="stat-card">
                             <div class="stat-icon"><i class="fas fa-fill-drip"></i></div>
                             <div class="stat-info">
-                                <h3>Combustível Consumido</h3>
+                                <h3>Combustível Consumido (Real)</h3>
                                 <p id="totalFuel">--</p>
                             </div>
                         </div>
@@ -130,7 +130,10 @@
                             <div class="stat-icon"><i class="fas fa-truck-ramp-box"></i></div>
                             <div class="stat-info">
                                 <h3>Viagens Consolidadas</h3>
-                                <p id="totalTripsInfo">--</p>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <p id="totalTripsInfo">--</p>
+                                    <span id="avgTripsPerDay" style="font-size: 1.1rem; font-weight: 600;">--/dia</span>
+                                </div>
                                 <small id="metaLabelViagens">Meta: 2.0 por dia</small>
                             </div>
                         </div>
@@ -154,6 +157,7 @@
                     <div class="charts-row">
                         <div class="chart-card full-width">
                             <h3><i class="fas fa-stopwatch"></i> Eficiência de Motor (Condução vs Ocioso)</h3>
+                            
                             <div class="efficiency-layout">
                                 <div class="efficiency-stats">
                                     <div class="stat-box">
@@ -162,6 +166,7 @@
                                         <small id="medConducao">Média: --h / viagem</small>
                                     </div>
                                 </div>
+                                
                                 <div class="chart-container efficiency-chart">
                                     <canvas id="timeDistributionChart"></canvas>
                                     <div class="chart-center-overlay">
@@ -169,6 +174,7 @@
                                         <span>Produtividade</span>
                                     </div>
                                 </div>
+
                                 <div class="efficiency-stats">
                                     <div class="stat-box">
                                         <span class="stat-label"><div class="dot parado"></div>Tempo Parado</span>
@@ -238,7 +244,7 @@
                 <div id="consumo-evolutionPage" class="page">
                     <div class="chart-card full-width" style="margin-bottom: 24px;">
                         <h3 id="tituloEvolucao"><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
-                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">O gráfico obedece aos cruzamentos de Frota e Motoristas que você escolher no topo da página.</p>
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">O gráfico obedece aos cruzamentos de Frota e Motoristas selecionados no menu superior.</p>
                         <div class="chart-container" style="height: 350px;">
                             <canvas id="evolutionChart"></canvas>
                         </div>
@@ -309,7 +315,7 @@
         </main>
     </div>
     
-    <!-- Scripts do Sistema Modularizados -->
+    <!-- SCRIPTS MODULARIZADOS: A ORDEM AQUI É OBRIGATÓRIA -->
     <script src="js/config.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/import.js"></script>

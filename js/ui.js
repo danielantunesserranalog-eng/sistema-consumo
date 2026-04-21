@@ -1,4 +1,4 @@
-// ==================== 2. INTERFACE DE USUÁRIO E GRÁFICOS ==================== 
+// ==================== INTERFACE DE USUÁRIO E GRÁFICOS ==================== 
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = 'rgba(51, 65, 85, 0.5)';
 Chart.defaults.font.family = "'Inter', sans-serif";
@@ -53,10 +53,14 @@ function updateStatsCards() {
     
     const cColor = dashboardData.avgConsumption < currentMetaKML && dashboardData.avgConsumption > 0 ? '#f87171' : '#34d399';
     el('avgConsumption', `${dashboardData.avgConsumption.toFixed(2)} KM/L`, cColor);     
+    
     el('totalDistance', `${Math.round(dashboardData.totalDist).toLocaleString('pt-BR')} KM`);     
     el('totalFuel', `${Math.round(dashboardData.totalFuel).toLocaleString('pt-BR')} L`);     
-    el('avgTripsPerDay', `${dashboardData.avgTripsPerDay.toFixed(1)} viag/d`); 
+    
     el('totalTripsInfo', `${rawData.length}`); 
+    
+    const vColor = dashboardData.avgTripsPerDay < currentMetaViagens && dashboardData.avgTripsPerDay > 0 ? '#f87171' : '#34d399';
+    el('avgTripsPerDay', `${dashboardData.avgTripsPerDay.toFixed(1)} /dia`, vColor); 
 }
 
 function renderTables(viagens) {     
@@ -68,10 +72,7 @@ function renderTables(viagens) {
             rBody.innerHTML = dashboardData.drivers.map((d, index) => {
                 const kml = parseFloat(d.realKML) || 0;
                 const isCritical = kml > 0 && kml < currentMetaKML;
-                
-                const statusHtml = isCritical 
-                    ? `<span class="status-badge danger">Abaixo da Meta</span>` 
-                    : `<span class="status-badge success" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Na Meta</span>`;
+                const statusHtml = isCritical ? `<span class="status-badge danger">Abaixo da Meta</span>` : `<span class="status-badge success" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Na Meta</span>`;
                 
                 let rankTrophy = `${index + 1}º`;
                 if (index === 0) rankTrophy = `<i class="fas fa-trophy" style="color: #fbbf24; font-size: 1.2rem;"></i> 1º`;
@@ -262,6 +263,8 @@ function showEmptyDashboard() {
     ids.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = '--h'; });
     const meds = ['medConducao', 'medParado'];
     meds.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = 'Média: --h / viag'; });
+    
+    if(document.getElementById('avgTripsPerDay')) document.getElementById('avgTripsPerDay').innerText = '--/dia';
     if(document.getElementById('centerEficiencia')) document.getElementById('centerEficiencia').innerText = '--%';
 
     if (driverChart) driverChart.destroy();
