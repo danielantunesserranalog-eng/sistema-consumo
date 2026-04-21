@@ -100,7 +100,6 @@ function renderTables(viagens) {
         }
     }
     
-    // ======== NOVA RENDERIZAÇÃO DA TABELA DE ALERTAS ========
     const aBody = document.getElementById('alertsTableBody');
     if (aBody) {
         if (dashboardData.alerts.length === 0) {
@@ -130,7 +129,6 @@ function renderTables(viagens) {
             }).join('');
         }
     }
-    // =======================================================
     
     const hBody = document.getElementById('historyTableBody');
     if (hBody) {
@@ -158,7 +156,68 @@ function renderTables(viagens) {
             }).join('');
         }
     }
+
+    // Chama a renderização do novo Pódio!
+    renderPodium();
 }
+
+// ======== NOVA LÓGICA DO PÓDIO (MOTORISTA DESTAQUE) ========
+function renderPodium() {
+    const podiumContainer = document.getElementById('podiumContainer');
+    if (!podiumContainer) return;
+
+    // Filtramos motoristas válidos (KM/L > 0) e pegamos os 3 melhores
+    const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0).slice(0, 3);
+
+    if (topDrivers.length === 0) {
+        podiumContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Nenhum dado com KM/L válido para gerar o pódio.</div>';
+        return;
+    }
+
+    // Arranjo visual do Pódio: [ 2º Lugar ] - [ 1º Lugar ] - [ 3º Lugar ]
+    let displayOrder = [];
+    if (topDrivers.length === 3) displayOrder = [topDrivers[1], topDrivers[0], topDrivers[2]];
+    else if (topDrivers.length === 2) displayOrder = [topDrivers[1], topDrivers[0]];
+    else displayOrder = [topDrivers[0]];
+
+    const rankClasses = {
+        0: 'rank-1', // Index na array real topDrivers (1º lugar)
+        1: 'rank-2', // (2º lugar)
+        2: 'rank-3'  // (3º lugar)
+    };
+
+    const icons = {
+        0: '<i class="fas fa-trophy"></i>',
+        1: '<i class="fas fa-medal"></i>',
+        2: '<i class="fas fa-award"></i>'
+    };
+
+    podiumContainer.innerHTML = displayOrder.map(d => {
+        const originalIndex = topDrivers.indexOf(d); // Descobre se ele é o 1º, 2º ou 3º
+        const rankClass = rankClasses[originalIndex];
+        const icon = icons[originalIndex];
+
+        return `
+            <div class="podium-card ${rankClass}">
+                <div class="rank-badge">${icon}</div>
+                <div class="podium-avatar"><i class="fas fa-user-astronaut"></i></div>
+                <div class="podium-name">${d.name}</div>
+                <div class="podium-kml">${d.realKML.toFixed(2)} <span style="font-size: 0.9rem; font-weight: 500; color: #94a3b8;">KM/L</span></div>
+                <div class="podium-stats">
+                    <div class="p-stat">
+                        <span>Distância</span>
+                        <strong>${Math.round(d.dist)} km</strong>
+                    </div>
+                    <div class="p-stat">
+                        <span>Viagens</span>
+                        <strong>${d.trips}</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+// ===========================================================
 
 function parseInterval(i) {
     if (!i) return 0;
@@ -288,6 +347,10 @@ function showEmptyDashboard() {
     
     if(document.getElementById('avgTripsPerDay')) document.getElementById('avgTripsPerDay').innerText = '--/dia';
     if(document.getElementById('centerEficiencia')) document.getElementById('centerEficiencia').innerText = '--%';
+    
+    // Zera o pódio também caso não haja dados
+    const pContainer = document.getElementById('podiumContainer');
+    if (pContainer) pContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Sem dados para gerar o pódio.</div>';
     
     if (driverChart) driverChart.destroy();
     if (truckChart) truckChart.destroy();

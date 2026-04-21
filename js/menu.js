@@ -9,6 +9,13 @@ const menuConfig = [
         active: true 
     },
     { 
+        id: 'motorista-destaque', 
+        icon: 'fas fa-star', 
+        menuLabel: 'Motorista Destaque', 
+        pageTitle: 'Top 3 Motoristas (Pódio)', 
+        active: false 
+    },
+    { 
         id: 'consumo-evolution', 
         icon: 'fas fa-list-alt', 
         menuLabel: 'Histórico Detalhado', 
@@ -22,7 +29,6 @@ const menuConfig = [
         pageTitle: 'Gerenciamento de Dados', 
         active: false 
     }
-    // Para adicionar um novo menu, basta colocar uma vírgula na chave acima e adicionar um novo bloco!
 ];
 
 // Função que injeta o menu no HTML
