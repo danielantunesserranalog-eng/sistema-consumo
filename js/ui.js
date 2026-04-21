@@ -315,18 +315,76 @@ function renderEvolutionChartLogic(viagens, selMot, selPlac) {
     
     if(titHTML) titHTML.innerHTML = `<i class="fas fa-chart-area"></i> ${title}`;
     
+    // NOVO: Plugin customizado para desenhar os textos brancos em cima de cada ponto da linha
+    const valueLabelsPlugin = {
+        id: 'valueLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            chart.data.datasets.forEach((dataset, i) => {
+                // Aplica apenas na linha de desempenho, ignora a linha de Meta
+                if (dataset.label === 'KM/L Real/Dia') {
+                    const meta = chart.getDatasetMeta(i);
+                    meta.data.forEach((point, index) => {
+                        const val = dataset.data[index];
+                        if (val > 0) {
+                            ctx.save();
+                            ctx.fillStyle = '#ffffff'; // Texto branco (Destacado)
+                            ctx.font = 'bold 12px Inter, sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            // Desenha o número um pouco acima da bolinha (point.y - 10)
+                            ctx.fillText(val, point.x, point.y - 10);
+                            ctx.restore();
+                        }
+                    });
+                }
+            });
+        }
+    };
+
     evolutionChart = new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: {
             labels: sortedKeys.length ? sortedKeys : ['Sem dados'],
-            datasets: [{
-                label: 'KM/L Real/Dia',
-                data: values.length ? values : [0],
-                borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)',
-                borderWidth: 3, fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#0f172a'
-            }]
+            datasets: [
+                {
+                    label: 'KM/L Real/Dia',
+                    data: values.length ? values : [0],
+                    borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                    borderWidth: 3, fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#0f172a'
+                },
+                // NOVO: Linha de Meta destacada (amarela/dourada pontilhada)
+                {
+                    label: `Meta (${currentMetaKML.toFixed(2)} KM/L)`,
+                    data: sortedKeys.length ? Array(sortedKeys.length).fill(currentMetaKML) : [currentMetaKML],
+                    borderColor: '#fbbf24', // Destaque na cor Amarela/Dourada
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5], // Define linha tracejada
+                    pointRadius: 0, // Sem bolinhas na meta
+                    fill: false,
+                    tension: 0
+                }
+            ]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false, suggestedMin: 1.0, grid: { color: 'rgba(51,65,85,0.3)' } }, x: { grid: { display: false } } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            layout: {
+                padding: {
+                    top: 25 // Dá espaço no topo para os textos em branco não cortarem no limite do gráfico
+                }
+            },
+            scales: { 
+                y: { 
+                    beginAtZero: false, 
+                    suggestedMin: 1.0, 
+                    grid: { color: 'rgba(51,65,85,0.3)' } 
+                }, 
+                x: { grid: { display: false } } 
+            } 
+        },
+        plugins: [valueLabelsPlugin] // NOVO: Injeta o plugin customizado que criamos acima
     });
 }
 
