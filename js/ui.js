@@ -4,37 +4,6 @@ Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = 'rgba(51, 65, 85, 0.5)';
 Chart.defaults.font.family = "'Inter', sans-serif";
 
-function initNavigation() {     
-    const navItems = document.querySelectorAll('.nav-item');     
-    const pages = document.querySelectorAll('.page');     
-    const pageTitle = document.getElementById('pageTitle');          
-    
-    navItems.forEach(item => {         
-        item.addEventListener('click', (e) => {             
-            e.preventDefault();             
-            const pageId = item.dataset.page;             
-            navItems.forEach(nav => nav.classList.remove('active'));             
-            item.classList.add('active');             
-            pages.forEach(page => page.classList.remove('active'));             
-            
-            const targetPage = document.getElementById(`${pageId}Page`);             
-            if (targetPage) targetPage.classList.add('active');                          
-            
-            const pageNames = { 'dashboard': 'Visão Geral da Frota', 'consumo-evolution': 'Histórico Detalhado', 'configuracoes': 'Gerenciamento de Dados' };             
-            if (pageTitle) pageTitle.textContent = pageNames[pageId] || 'CCOL_SISTEMA';             
-            currentPage = pageId;             
-            
-            document.getElementById('globalFilters').style.display = (pageId === 'configuracoes') ? 'none' : 'flex';
-        });     
-    }); 
-}
-
-function initMenuToggle() {     
-    const menuToggle = document.getElementById('menuToggle');     
-    const sidebar = document.getElementById('sidebar');     
-    if (menuToggle && sidebar) menuToggle.addEventListener('click', () => sidebar.classList.toggle('open')); 
-}
-
 function updateMetaTexts() {
     const lbl = document.getElementById('metaLabelDash');
     if(lbl) lbl.innerText = `Meta Operacional: ${currentMetaKML.toFixed(2)} KM/L`;
@@ -62,6 +31,7 @@ function updateStatsCards() {
 
 function renderTables(viagens) {     
     
+    // Tabela: Ranking Geral
     const rBody = document.getElementById('rankingTableBody');
     if (rBody) {
         if (dashboardData.drivers.length === 0) {
@@ -92,18 +62,21 @@ function renderTables(viagens) {
         }
     }
 
+    // Tabela: Motoristas Críticos
     const dBody = document.getElementById('driversTableBody');
     if (dBody) {
         if (dashboardData.criticalDrivers.length === 0) dBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Excelente. Sem motoristas na zona vermelha.</td></tr>';
         else dBody.innerHTML = dashboardData.criticalDrivers.slice(0, 10).map(d => `<tr><td style="font-weight:600;">${d.name}</td><td class="text-danger">${d.realKML.toFixed(2)}</td><td>${Math.round(d.dist)}</td></tr>`).join('');
     }
 
+    // Tabela: Alertas de Equipamentos
     const aBody = document.getElementById('alertsTableBody');     
     if (aBody) {
         if (dashboardData.alerts.length === 0) aBody.innerHTML = '<tr><td colspan="3" class="text-center text-success">Nenhum alerta de frota pendente.</td></tr>'; 
         else aBody.innerHTML = dashboardData.alerts.slice(0, 10).map(a => `<tr><td style="font-weight: 600;">${a.placa}</td><td class="${parseFloat(a.trips) < currentMetaViagens ? 'text-warning' : ''}">${a.trips}</td><td><span class="status-badge ${a.issue === 'Alto Consumo' ? 'danger' : 'warning'}">${a.issue}</span></td></tr>`).join(''); 
     }
 
+    // Tabela: Histórico Detalhado
     const hBody = document.getElementById('historyTableBody');
     if (hBody) {
         const formatDT = (iso) => {
@@ -113,7 +86,7 @@ function renderTables(viagens) {
             return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
         };
 
-        const recentViagens = [...viagens].reverse().slice(0, 500);
+        const recentViagens = [...viagens].reverse().slice(0, 1000);
 
         if (recentViagens.length === 0) {
             hBody.innerHTML = '<tr><td colspan="6" class="text-center text-warning">Sem dados para este período.</td></tr>';
@@ -204,7 +177,7 @@ function renderDashboardCharts(viagens) {
     });     
 }
 
-function renderEvolutionChartLogic(viagens, type, value) {
+function renderEvolutionChartLogic(viagens, selMot, selPlac) {
     const dailyMap = new Map();         
     
     viagens.forEach(v => {             
@@ -224,15 +197,26 @@ function renderEvolutionChartLogic(viagens, type, value) {
     if (!canvas) return;     
     if (evolutionChart) evolutionChart.destroy();     
     
-    let title = 'Frota Geral';
-    if (type !== 'all' && value && value !== 'all') title = `${type === 'motorista' ? 'Motorista' : 'Equipamento'}: ${value}`;
+    // Título dinâmico do gráfico de evolução cruzada
+    let title = 'Frota Geral (Todos os Veículos e Motoristas)';
+    const titHTML = document.getElementById('tituloEvolucao');
+
+    if (selMot !== 'all' && selPlac !== 'all') {
+        title = `Desempenho: ${selMot} na Máquina ${selPlac}`;
+    } else if (selMot !== 'all') {
+        title = `Desempenho: ${selMot} (Todos os veículos que operou)`;
+    } else if (selPlac !== 'all') {
+        title = `Desempenho: Máquina ${selPlac} (Todos que a operaram)`;
+    }
+    
+    if(titHTML) titHTML.innerHTML = `<i class="fas fa-chart-area"></i> ${title}`;
 
     evolutionChart = new Chart(canvas.getContext('2d'), { 
         type: 'line', 
         data: { 
             labels: sortedKeys.length ? sortedKeys : ['Sem dados'], 
             datasets: [{ 
-                label: title + ' - KM/L Real', 
+                label: 'KM/L Real/Dia', 
                 data: values.length ? values : [0], 
                 borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', 
                 borderWidth: 3, fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#0f172a' 

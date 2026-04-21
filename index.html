@@ -34,7 +34,7 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <p>Versão 4.1 Dark Modular</p>
+                <p>Versão 5.0 Extreme</p>
             </div>
         </aside>
         
@@ -55,39 +55,50 @@
                     </div>
                 </div>
 
-                <!-- FILTROS FIXADOS NO MENU SUPERIOR -->
+                <!-- FILTROS CRUZADOS GLOBAIS NO TOPO -->
                 <div class="global-filters" id="globalFilters">
-                    <div class="filter-group" style="flex: 1.5;">
-                        <label><i class="far fa-calendar-alt"></i> Período de Análise</label>
-                        <div style="display: flex; gap: 8px;">
-                            <select id="dateFilter">
-                                <option value="today">Hoje</option>
-                                <option value="d-1">Ontem (D-1)</option>
-                                <option value="d-2">Últimos 2 dias (D-2)</option>
-                                <option value="d-7">Últimos 7 dias (D-7)</option>
-                                <option value="d-30" selected>Últimos 30 dias (D-30)</option>
-                                <option value="week">Semana Atual</option>
-                                <option value="month">Mês Atual</option>
-                                <option value="custom">Data Específica</option>
-                            </select>
-                            <input type="date" id="customDateInput" class="filter-input" style="display: none;">
+                    
+                    <div class="filter-group">
+                        <label><i class="far fa-calendar-alt"></i> Período</label>
+                        <select id="dateFilter">
+                            <option value="today">Hoje</option>
+                            <option value="d-1">Ontem (D-1)</option>
+                            <option value="d-2">Últimos 2 dias</option>
+                            <option value="d-7">Últimos 7 dias</option>
+                            <option value="d-30" selected>Últimos 30 dias</option>
+                            <option value="week">Semana Atual</option>
+                            <option value="month">Mês Atual</option>
+                            <option value="custom">Data Específica</option>
+                            <option value="range">Entre Datas</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group" id="dateInputsGroup" style="display: none; flex: none;">
+                        <label id="dateInputsLabel">Selecione a Data</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="date" id="startDateInput" class="filter-input">
+                            <span id="dateSeparator" style="color: #94a3b8; font-weight: bold; display: none;">até</span>
+                            <input type="date" id="endDateInput" class="filter-input" style="display: none;">
                         </div>
                     </div>
+
+                    <!-- Filtro de Placa -->
                     <div class="filter-group">
-                        <label><i class="fas fa-filter"></i> Visão de Entidade</label>
-                        <select id="entityType">
-                            <option value="all">Frota Completa Geral</option>
-                            <option value="motorista">Filtrar por Motorista</option>
-                            <option value="placa">Filtrar por Equipamento</option>
+                        <label><i class="fas fa-truck"></i> Frota (Equipamento)</label>
+                        <select id="filterPlaca">
+                            <option value="all">Toda a Frota</option>
                         </select>
                     </div>
-                    <div class="filter-group" id="entityValueGroup" style="display: none;">
-                        <label><i class="fas fa-search"></i> Selecione</label>
-                        <select id="entityValue">
-                            <option value="">Aguardando...</option>
+
+                    <!-- Filtro de Motorista -->
+                    <div class="filter-group">
+                        <label><i class="fas fa-user"></i> Motorista</label>
+                        <select id="filterMotorista">
+                            <option value="all">Todos os Motoristas</option>
                         </select>
                     </div>
-                    <button id="applyFilterBtn" class="btn-primary"><i class="fas fa-sync-alt"></i> Filtrar</button>
+
+                    <button id="applyFilterBtn" class="btn-primary" title="Busca os dados no banco"><i class="fas fa-cloud-download-alt"></i> Buscar Dados</button>
                 </div>
             </header>
             
@@ -177,7 +188,7 @@
 
                     <div class="tables-row">
                         <div class="table-card full-width">
-                            <h3><i class="fas fa-trophy" style="color: #fbbf24;"></i> Ranking Geral de Motoristas (Do Maior para o Menor KM/L)</h3>
+                            <h3><i class="fas fa-trophy" style="color: #fbbf24;"></i> Ranking Geral de Motoristas (KML Ponderado)</h3>
                             <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
                                 <table id="rankingTable">
                                     <thead style="position: sticky; top: 0; z-index: 10;">
@@ -232,16 +243,15 @@
                 <!-- Histórico Detalhado Page -->
                 <div id="consumo-evolutionPage" class="page">
                     <div class="chart-card full-width" style="margin-bottom: 24px;">
-                        <h3><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
-                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Esta visão obedece aos filtros globais de período e entidade (Motorista/Placa) selecionados no menu superior.</p>
+                        <h3 id="tituloEvolucao"><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">O gráfico obedece aos cruzamentos de Frota e Motoristas selecionados no menu superior.</p>
                         <div class="chart-container" style="height: 350px;">
                             <canvas id="evolutionChart"></canvas>
                         </div>
                     </div>
 
                     <div class="table-card full-width">
-                        <h3><i class="fas fa-route"></i> Registro de Viagens (Período Selecionado)</h3>
-                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Listagem completa de todas as viagens consolidadas que compõem os cálculos atuais. Mostrando as mais recentes no topo.</p>
+                        <h3><i class="fas fa-route"></i> Registro Diário de Viagens (Período Selecionado)</h3>
                         <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
                             <table id="historyTable">
                                 <thead style="position: sticky; top: 0; z-index: 10;">
@@ -269,8 +279,6 @@
                         <h2><i class="fas fa-bullseye"></i> Parâmetros Operacionais</h2>
                         <p>Defina a régua de consumo e produtividade da frota. O sistema ajustará os gráficos e alertas automaticamente com base nestes valores.</p>
                         <div style="display: flex; gap: 16px; align-items: flex-end; margin-top: 16px; flex-wrap: wrap;">
-                            
-                            <!-- AQUI ESTÃO OS DOIS CAMPOS LADO A LADO -->
                             <div class="filter-group" style="flex: none;">
                                 <label>Meta de KM/L (Mínimo)</label>
                                 <input type="number" id="metaInput" class="filter-input" step="0.01" min="0.1" style="width: 180px;">
@@ -280,13 +288,12 @@
                                 <input type="number" id="metaViagensInput" class="filter-input" step="0.1" min="0.1" style="width: 180px;">
                             </div>
                             <button id="saveMetaBtn" class="btn-primary"><i class="fas fa-save"></i> Salvar Parâmetros</button>
-
                         </div>
                     </div>
 
                     <div class="config-card">
                         <h2><i class="fas fa-database"></i> Motor de Importação Inteligente</h2>
-                        <p>Envie relatórios CSV. O sistema limpará duplicatas, consolidará as viagens e ignorará viagens menores que 10km.</p>
+                        <p>Envie relatórios CSV. O sistema limpará duplicatas, consolidará as viagens e ignorará viagens curtas de manobra.</p>
                         
                         <div class="upload-area" id="uploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
@@ -308,10 +315,7 @@
         </main>
     </div>
     
-    <!-- Scripts do Sistema Modularizados -->
-    <script src="js/config.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/import.js"></script>
+    <!-- Script Unificado para Evitar Erros de Leitura -->
     <script src="js/app.js"></script>
 </body>
 </html>
