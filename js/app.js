@@ -1,7 +1,7 @@
 // ==================== CONFIGURAÇÃO DO SUPABASE ==================== 
-// ==================== CONFIGURAÇÃO DO SUPABASE ==================== 
 const SUPABASE_URL = 'https://qhbenzrxajbeaatwxtlj.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoYmVuenJ4YWpiZWFhdHd4dGxqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MzQ2OTksImV4cCI6MjA5MjMxMDY5OX0.2ddgnsjmxqmX9xk68m9duUmzAO2n2OAvEpOgHevRwkU';let supabaseClient = null; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoYmVuenJ4YWpiZWFhdHd4dGxqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MzQ2OTksImV4cCI6MjA5MjMxMDY5OX0.2ddgnsjmxqmX9xk68m9duUmzAO2n2OAvEpOgHevRwkU'; 
+let supabaseClient = null; 
 let isImporting = false; 
 let importStats = { total: 0, inserted: 0, excluded: 0, errors: 0 }; 
 let evolutionDataCache = new Map(); 
@@ -11,7 +11,7 @@ let driverChart = null, truckChart = null, timeChart = null, evolutionChart = nu
 let currentPage = 'dashboard'; 
 let dashboardData = { avgConsumption: 0, totalDist: 0, totalFuel: 0, avgTripsPerDay: 0, drivers: [], trucks: [], alerts: [], criticalDrivers: [] }; 
 
-// Lista Negra de Placas de Apoio
+// Lista Negra de Placas de Apoio (Não entram no cálculo)
 const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008']; 
 
 // ==================== INICIALIZAÇÃO ==================== 
@@ -71,7 +71,8 @@ async function loadDashboardData() {
         const { data: viagens, error } = await supabaseClient             
             .from('viagens')             
             .select('placa, motorista, km_l, distancia_km, inicio, tempo_conducao, tempo_parado, local_inicial, local_final')             
-            .gte('inicio', thirtyDaysAgo.toISOString());                  
+            .gte('inicio', thirtyDaysAgo.toISOString())
+            .limit(20000);                  
             
         if (error) throw error;         
         if (!viagens || viagens.length === 0) { showEmptyDashboard(); return; }                  
@@ -117,10 +118,9 @@ function calculateMetrics(viagens) {
         .map(([name, data]) => ({ name, dist: data.dist, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
         .sort((a, b) => b.realKML - a.realKML);
         
-    // Separa os motoristas críticos (KM/L abaixo de 1.80 e que rodaram mais de 50km para evitar falsos positivos)
     dashboardData.criticalDrivers = dashboardData.drivers
         .filter(d => d.realKML > 0 && d.realKML < 1.80 && d.dist > 50)
-        .sort((a, b) => a.realKML - b.realKML); // Piores primeiro
+        .sort((a, b) => a.realKML - b.realKML);
 
     dashboardData.trucks = Array.from(truckMap.entries())
         .map(([plate, data]) => ({ plate, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
@@ -169,7 +169,6 @@ function updateStatsCards() {
 }
 
 function renderTables() {     
-    // Tabela de Motoristas Críticos
     const dBody = document.getElementById('driversTableBody');
     if (dBody) {
         if (dashboardData.criticalDrivers.length === 0) {
@@ -185,7 +184,6 @@ function renderTables() {
         }
     }
 
-    // Tabela de Alertas de Frota
     const aBody = document.getElementById('alertsTableBody');     
     if (aBody) {
         if (dashboardData.alerts.length === 0) { 
@@ -203,7 +201,7 @@ function renderTables() {
     }
 }
 
-// ==================== GRÁFICOS (Renderização) ==================== 
+// ==================== GRÁFICOS ==================== 
 function renderDashboardCharts() { 
     renderDriverChart(); 
     renderTruckChart(); 
@@ -256,7 +254,7 @@ async function renderTimeDistributionChart() {
     if (timeChart) timeChart.destroy();     
     try {         
         const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);         
-        const { data, error } = await supabaseClient.from('viagens').select('tempo_conducao, tempo_parado, local_inicial, local_final').gte('inicio', thirtyDaysAgo.toISOString());         
+        const { data, error } = await supabaseClient.from('viagens').select('tempo_conducao, tempo_parado, local_inicial, local_final').gte('inicio', thirtyDaysAgo.toISOString()).limit(20000);         
         if (error) throw error;         
         
         let campo = 0, fabrica = 0;         
@@ -316,14 +314,13 @@ async function loadEvolutionSelects() {
     const filterValue = document.getElementById('filterValue');     
     if (!filterType || !filterValue) return;     
     
-    const type = filterType.value; // 'motorista' ou 'caminhao'
+    const type = filterType.value; 
     const column = type === 'motorista' ? 'motorista' : 'placa';
 
     try {         
-        const { data, error } = await supabaseClient.from('viagens').select(column);         
+        const { data, error } = await supabaseClient.from('viagens').select(column).limit(50000);         
         if (error) throw error;         
         
-        // Extrai apenas os valores válidos e ordena
         const validData = data.map(d => d[column]).filter(Boolean);
         const unique = [...new Set(validData)].sort();         
         
@@ -376,7 +373,7 @@ function renderEvolutionChart(labels, data, type, value) {
     }); 
 }
 
-// ==================== IMPORTAÇÃO ==================== 
+// ==================== IMPORTAÇÃO E FILTRO ANTI-ERRO ==================== 
 function initImportModule() {     
     const uploadArea = document.getElementById('uploadArea');     
     const fileInput = document.getElementById('csvFileInput');     
@@ -419,13 +416,13 @@ async function processFiles(files) {
             const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);             
             addToImportLog(`✅ ${file.name} finalizado. (${elapsed}s)`, 'success');         
         } catch (error) { 
-            addToImportLog(`❌ Erro no arquivo: ${error.message}`, 'error'); 
+            addToImportLog(`❌ Erro Crítico: ${error.message}`, 'error'); 
         }     
     }          
     
     isImporting = false;     
-    const summary = `Concluído! Lidas: ${importStats.total} | Inseridas: ${importStats.inserted} | Placas Ignoradas: ${importStats.excluded} | Erros BD: ${importStats.errors}`;     
-    showImportStatus('success', summary);          
+    const summary = `Concluído! Lidas: ${importStats.total} | Novas: ${importStats.inserted} | Ignoradas/Repetidas: ${importStats.excluded} | Erros: ${importStats.errors}`;     
+    showImportStatus(importStats.errors === 0 ? 'success' : 'warning', summary);          
     
     if (importStats.inserted > 0) {         
         addToImportLog('🔄 Recarregando painel gerencial...', 'info');         
@@ -540,12 +537,65 @@ function mapRowFast(row) {
 }
 
 async function batchInsertSupabase(viagens) {     
+    // 1. Limpeza no Front-End: Remove viagens duplicadas vindas do próprio CSV
+    const viagensUnicas = [];
+    const chavesVistas = new Set();
+    
+    let minDate = viagens[0].inicio;
+    let maxDate = viagens[0].inicio;
+
+    for (const v of viagens) {
+        const normInicio = v.inicio.replace('T', ' ').split('.')[0];
+        const chave = `${v.placa}_${normInicio}`; 
+        
+        if (!chavesVistas.has(chave)) {
+            chavesVistas.add(chave);
+            viagensUnicas.push(v);
+            
+            if (normInicio < minDate) minDate = normInicio;
+            if (normInicio > maxDate) maxDate = normInicio;
+        } else {
+            importStats.excluded++; 
+        }
+    }
+
+    addToImportLog(`   Verificando viagens já salvas no banco para não duplicar...`, 'info');
+
+    // 2. Inteligência: Baixa a lista do que já existe no banco no período e ignora
+    const { data: dbViagens, error: dbError } = await supabaseClient
+        .from('viagens')
+        .select('placa, inicio')
+        .gte('inicio', minDate)
+        .lte('inicio', maxDate)
+        .limit(50000);
+
+    if (dbError) {
+        console.error(dbError);
+        throw new Error('Falha ao acessar o banco de dados para checar duplicatas.');
+    }
+
+    const bdSet = new Set((dbViagens || []).map(v => `${v.placa}_${v.inicio.replace('T', ' ').split('.')[0]}`));
+
+    // 3. Filtra apenas o que é 100% novo
+    const viagensParaInserir = viagensUnicas.filter(v => {
+        const isNew = !bdSet.has(`${v.placa}_${v.inicio.replace('T', ' ').split('.')[0]}`);
+        if (!isNew) importStats.excluded++; 
+        return isNew;
+    });
+
+    if (viagensParaInserir.length === 0) {
+        addToImportLog(`   Todas as viagens do arquivo já estão no sistema. Nenhuma alteração.`, 'warning');
+        return;
+    }
+
+    addToImportLog(`   Enviando ${viagensParaInserir.length} novas viagens limpas...`, 'info');
+
     const batchSize = 250; 
     
-    for (let i = 0; i < viagens.length; i += batchSize) {         
-        const batch = viagens.slice(i, i + batchSize);         
+    // 4. Envio Limpo (INSERT normal - o banco aceita pois não tem mais risco de erro)
+    for (let i = 0; i < viagensParaInserir.length; i += batchSize) {         
+        const batch = viagensParaInserir.slice(i, i + batchSize);         
         
-        // Uso de insert direto para evitar erro de onConflict inexistente
         const { error } = await supabaseClient.from('viagens').insert(batch);             
         
         if (error) {
@@ -555,8 +605,8 @@ async function batchInsertSupabase(viagens) {
             importStats.inserted += batch.length;
         }
         
-        const progress = Math.round((i + batch.length) / viagens.length * 100);         
-        addToImportLog(`   Enviando p/ BD: ${progress}%...`, 'info');     
+        const progress = Math.round((i + batch.length) / viagensParaInserir.length * 100);         
+        addToImportLog(`   Progresso de salvamento: ${progress}%...`, 'info');     
     }          
 }
 
