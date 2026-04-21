@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initGlobalFilters();
     initSettingsModule();
     
-    // Tenta carregar a meta do banco, e depois puxa as viagens
     loadMetaFromDB().then(() => {
         setTimeout(() => { document.getElementById('applyFilterBtn').click(); }, 500); 
     });
@@ -217,13 +216,17 @@ function calculateMetrics(viagens) {
             globalDist += dist;
             globalLitros += litros;
 
+            // ADICIONADO: 'trips' para contar quantas viagens o motorista fez
             const dName = v.motorista || 'Indefinido';
-            if (!driverMap.has(dName)) driverMap.set(dName, { dist: 0, litros: 0 });
-            driverMap.get(dName).dist += dist; driverMap.get(dName).litros += litros;
+            if (!driverMap.has(dName)) driverMap.set(dName, { dist: 0, litros: 0, trips: 0 });
+            driverMap.get(dName).dist += dist; 
+            driverMap.get(dName).litros += litros;
+            driverMap.get(dName).trips += 1;
 
             const tPlate = v.placa || 'Indefinido';
             if (!truckMap.has(tPlate)) truckMap.set(tPlate, { dist: 0, litros: 0 });
-            truckMap.get(tPlate).dist += dist; truckMap.get(tPlate).litros += litros;
+            truckMap.get(tPlate).dist += dist; 
+            truckMap.get(tPlate).litros += litros;
         }
     });
 
@@ -231,8 +234,9 @@ function calculateMetrics(viagens) {
     dashboardData.totalFuel = globalLitros;
     dashboardData.avgConsumption = globalLitros > 0 ? (globalDist / globalLitros) : 0;          
     
+    // ADICIONADO: exportar 'trips' pro dashboardData
     dashboardData.drivers = Array.from(driverMap.entries())
-        .map(([name, data]) => ({ name, dist: data.dist, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
+        .map(([name, data]) => ({ name, dist: data.dist, realKML: data.litros > 0 ? data.dist / data.litros : 0, trips: data.trips }))
         .sort((a, b) => b.realKML - a.realKML);
         
     dashboardData.criticalDrivers = dashboardData.drivers

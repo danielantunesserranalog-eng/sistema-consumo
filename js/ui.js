@@ -60,11 +60,11 @@ function updateStatsCards() {
 
 function renderTables(viagens) {     
     
-    // 1. Tabela Nova: Ranking Geral de Motoristas
+    // 1. Tabela Nova: Ranking Geral de Motoristas (COM COLUNA DE VIAGENS)
     const rBody = document.getElementById('rankingTableBody');
     if (rBody) {
         if (dashboardData.drivers.length === 0) {
-            rBody.innerHTML = '<tr><td colspan="5" class="text-center text-warning">Sem dados de motoristas no período.</td></tr>';
+            rBody.innerHTML = '<tr><td colspan="6" class="text-center text-warning">Sem dados de motoristas no período.</td></tr>';
         } else {
             rBody.innerHTML = dashboardData.drivers.map((d, index) => {
                 const kml = parseFloat(d.realKML) || 0;
@@ -86,6 +86,7 @@ function renderTables(viagens) {
                     <td style="font-weight:600; color:#e2e8f0;">${d.name}</td>
                     <td class="${isCritical ? 'text-danger' : 'text-success'}">${kml.toFixed(2)} KM/L</td>
                     <td>${Math.round(d.dist).toLocaleString('pt-BR')} KM</td>
+                    <td>${d.trips}</td> <!-- NOVA COLUNA DE CONTAGEM DE VIAGENS -->
                     <td>${statusHtml}</td>
                 </tr>`;
             }).join('');
@@ -226,9 +227,14 @@ function renderEvolutionChartLogic(viagens, type, value) {
 
 function showEmptyDashboard() {     
     document.querySelectorAll('.stat-card p').forEach(p => p.innerHTML = '--');     
+    
     ['alertsTableBody', 'driversTableBody', 'historyTableBody', 'rankingTableBody'].forEach(id => {
-        const e = document.getElementById(id); if (e) e.innerHTML = '<tr><td colspan="6" class="text-center text-warning">Sem dados para este período.</td></tr>';
+        const e = document.getElementById(id); 
+        // Adapta o número de colunas pro colspan ficar perfeito
+        const cols = id === 'historyTableBody' || id === 'rankingTableBody' ? 6 : 3;
+        if (e) e.innerHTML = `<tr><td colspan="${cols}" class="text-center text-warning">Sem dados para este período.</td></tr>`;
     });
+    
     if (driverChart) driverChart.destroy();
     if (truckChart) truckChart.destroy();
     if (timeChart) timeChart.destroy();
@@ -237,5 +243,5 @@ function showEmptyDashboard() {
 
 function showDashboardError() {     
     const tbody = document.getElementById('alertsTableBody');     
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro de conexão.</td></tr>'; 
+    if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Erro de conexão.</td></tr>'; 
 }
