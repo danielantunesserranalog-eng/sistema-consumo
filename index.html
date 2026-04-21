@@ -34,7 +34,7 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <p>Versão 3.4 Dark Pro</p>
+                <p>Versão 3.5 Dark Pro</p>
             </div>
         </aside>
         
@@ -138,12 +138,40 @@
                         </div>
                     </div>
 
+                    <!-- NOVO LAYOUT: EFICIÊNCIA DE MOTOR -->
                     <div class="charts-row">
                         <div class="chart-card full-width">
                             <h3><i class="fas fa-stopwatch"></i> Eficiência de Motor (Condução vs Ocioso)</h3>
-                            <div class="chart-container">
-                                <canvas id="timeDistributionChart"></canvas>
+                            
+                            <div class="efficiency-layout">
+                                <!-- Lado Esquerdo: Condução -->
+                                <div class="efficiency-stats">
+                                    <div class="stat-box">
+                                        <span class="stat-label"><div class="dot conducao"></div>Tempo de Condução</span>
+                                        <h4 id="totConducao">--h</h4>
+                                        <small id="medConducao">Média: --h / viagem</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Centro: Gráfico -->
+                                <div class="chart-container efficiency-chart">
+                                    <canvas id="timeDistributionChart"></canvas>
+                                    <div class="chart-center-overlay">
+                                        <h2 id="centerEficiencia">--%</h2>
+                                        <span>Produtividade</span>
+                                    </div>
+                                </div>
+
+                                <!-- Lado Direito: Ocioso -->
+                                <div class="efficiency-stats">
+                                    <div class="stat-box">
+                                        <span class="stat-label"><div class="dot parado"></div>Tempo Parado</span>
+                                        <h4 id="totParado">--h</h4>
+                                        <small id="medParado">Média: --h / viagem</small>
+                                    </div>
+                                </div>
                             </div>
+
                         </div>
                     </div>
 
