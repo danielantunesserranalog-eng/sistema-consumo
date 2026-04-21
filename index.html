@@ -16,8 +16,7 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="logo-area">
-                <i class="fas fa-truck-fast"></i>
-                <span>CCOL_SISTEMA</span>
+                <img src="assets/logo.png" alt="Serrana Florestal" class="brand-logo">
             </div>
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-page="dashboard">
@@ -41,7 +40,7 @@
         <!-- Main Content -->
         <main class="main-content">
             
-            <!-- TOP BAR UNIFICADA (Header + Filtros Globais) -->
+            <!-- TOP BAR UNIFICADA -->
             <header class="top-bar">
                 <div class="header-content">
                     <div class="header-left">
@@ -55,7 +54,7 @@
                     </div>
                 </div>
 
-                <!-- FILTROS CRUZADOS GLOBAIS NO TOPO -->
+                <!-- FILTROS CRUZADOS GLOBAIS -->
                 <div class="global-filters" id="globalFilters">
                     
                     <div class="filter-group">
@@ -82,7 +81,6 @@
                         </div>
                     </div>
 
-                    <!-- Filtro de Placa -->
                     <div class="filter-group">
                         <label><i class="fas fa-truck"></i> Frota (Equipamento)</label>
                         <select id="filterPlaca">
@@ -90,7 +88,6 @@
                         </select>
                     </div>
 
-                    <!-- Filtro de Motorista -->
                     <div class="filter-group">
                         <label><i class="fas fa-user"></i> Motorista</label>
                         <select id="filterMotorista">
@@ -98,7 +95,7 @@
                         </select>
                     </div>
 
-                    <button id="applyFilterBtn" class="btn-primary" title="Busca os dados no banco"><i class="fas fa-cloud-download-alt"></i> Buscar Dados</button>
+                    <button id="applyFilterBtn" class="btn-primary" title="Busca os dados do período selecionado no banco"><i class="fas fa-cloud-download-alt"></i> Buscar Dados</button>
                 </div>
             </header>
             
@@ -157,7 +154,6 @@
                     <div class="charts-row">
                         <div class="chart-card full-width">
                             <h3><i class="fas fa-stopwatch"></i> Eficiência de Motor (Condução vs Ocioso)</h3>
-                            
                             <div class="efficiency-layout">
                                 <div class="efficiency-stats">
                                     <div class="stat-box">
@@ -166,7 +162,6 @@
                                         <small id="medConducao">Média: --h / viagem</small>
                                     </div>
                                 </div>
-                                
                                 <div class="chart-container efficiency-chart">
                                     <canvas id="timeDistributionChart"></canvas>
                                     <div class="chart-center-overlay">
@@ -174,7 +169,6 @@
                                         <span>Produtividade</span>
                                     </div>
                                 </div>
-
                                 <div class="efficiency-stats">
                                     <div class="stat-box">
                                         <span class="stat-label"><div class="dot parado"></div>Tempo Parado</span>
@@ -244,7 +238,7 @@
                 <div id="consumo-evolutionPage" class="page">
                     <div class="chart-card full-width" style="margin-bottom: 24px;">
                         <h3 id="tituloEvolucao"><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
-                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">O gráfico obedece aos cruzamentos de Frota e Motoristas selecionados no menu superior.</p>
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">O gráfico obedece aos cruzamentos de Frota e Motoristas que você escolher no topo da página.</p>
                         <div class="chart-container" style="height: 350px;">
                             <canvas id="evolutionChart"></canvas>
                         </div>
@@ -315,7 +309,10 @@
         </main>
     </div>
     
-    <!-- Script Unificado para Evitar Erros de Leitura -->
+    <!-- Scripts do Sistema Modularizados -->
+    <script src="js/config.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/import.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// ==================== MOTOR DE IMPORTAÇÃO (COSTURA DE VIAGENS) ==================== 
+// ==================== 3. MOTOR DE IMPORTAÇÃO E DELETE ==================== 
 
 function initImportModule() {     
     const uploadArea = document.getElementById('uploadArea');     
@@ -199,7 +199,7 @@ async function batchInsertSupabase(viagensParaInserir) {
     const { data: dbViagens, error: dbError } = await supabaseClient
         .from('viagens').select('placa, inicio').gte('inicio', minDate).lte('inicio', maxDate).limit(100000);
 
-    if (dbError) throw new Error('Falha ao checar duplicatas.');
+    if (dbError) throw new Error('Falha ao checar duplicatas no banco.');
 
     const bdSet = new Set((dbViagens || []).map(v => `${v.placa}_${v.inicio.split('.')[0]}`));
 
@@ -211,7 +211,7 @@ async function batchInsertSupabase(viagensParaInserir) {
         addToImportLog(`Todas as viagens calculadas já existem no sistema.`, 'warning'); return;
     }
 
-    addToImportLog(`Transmitindo ${viagensLimpas.length} viagens...`, 'info');
+    addToImportLog(`Transmitindo ${viagensLimpas.length} viagens ao BD...`, 'info');
     const batchSize = 300; 
     
     for (let i = 0; i < viagensLimpas.length; i += batchSize) {         
@@ -222,13 +222,32 @@ async function batchInsertSupabase(viagensParaInserir) {
     }          
 }
 
+function initDeleteModule() {
+    const deleteBtn = document.getElementById('deleteAllBtn');
+    if (!deleteBtn) return;
+    deleteBtn.addEventListener('click', async () => {
+        if (!confirm('ATENÇÃO: Você vai APAGAR TODAS AS VIAGENS do banco. Continuar?')) return;
+        if (prompt('Digite a palavra "APAGAR" em maiúsculo:') === 'APAGAR') {
+            try {
+                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Formatando...';
+                deleteBtn.disabled = true;
+                const { error } = await supabaseClient.from('viagens').delete().not('placa', 'is', null);
+                if (error) throw error;
+                alert('Banco limpo!'); window.location.reload();
+            } catch (err) { alert('Erro: ' + err.message); window.location.reload(); }
+        }
+    });
+}
+
 function showImportStatus(type, msg) {     
     const el = document.getElementById('importStatus'); if (!el) return;     
     el.style.backgroundColor = type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)';     
     el.style.color = type === 'success' ? '#34d399' : '#f87171';     
     el.innerHTML = `<span>${msg}</span>`; el.style.display = 'block';     
 }
+
 function clearImportLog() { const el = document.getElementById('importLog'); if (el) el.innerHTML = ''; }
+
 function addToImportLog(msg, type = 'info') {     
     const el = document.getElementById('importLog'); if (!el) return;     
     const entry = document.createElement('div');     
