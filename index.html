@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SISTEMA_CONSUMO - Gestão de Frota</title>
+    <title>SISTEMA_CONSUMO - Gestão Avançada de Frota</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -17,38 +17,73 @@
         <aside class="sidebar" id="sidebar">
             <div class="logo-area">
                 <i class="fas fa-truck-fast"></i>
-                <span>SISTEMA_CONSUMO</span>
+                <span>CCOL_SISTEMA</span>
             </div>
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-page="dashboard">
-                    <i class="fas fa-chart-line"></i>
+                    <i class="fas fa-chart-pie"></i>
                     <span>Dashboard Principal</span>
                 </a>
                 <a href="#" class="nav-item" data-page="consumo-evolution">
-                    <i class="fas fa-route"></i>
-                    <span>Evolução de Consumo</span>
+                    <i class="fas fa-chart-line"></i>
+                    <span>Histórico de Evolução</span>
                 </a>
                 <a href="#" class="nav-item" data-page="configuracoes">
-                    <i class="fas fa-cog"></i>
-                    <span>Configurações</span>
+                    <i class="fas fa-sliders-h"></i>
+                    <span>Gerenciamento de Dados</span>
                 </a>
             </nav>
+            <div class="sidebar-footer">
+                <p>Versão 3.0 Dark</p>
+            </div>
         </aside>
         
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
-                <div class="menu-toggle" id="menuToggle">
-                    <i class="fas fa-bars"></i>
+                <div class="header-left">
+                    <div class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></div>
+                    <h1 id="pageTitle">Visão Geral da Frota</h1>
                 </div>
-                <h1 id="pageTitle">Dashboard Principal</h1>
                 <div class="user-info">
-                    <i class="fas fa-user-circle"></i>
+                    <div class="status-indicator"></div>
                     <span>Serrana Florestal</span>
+                    <i class="fas fa-user-circle"></i>
                 </div>
             </header>
             
             <div class="content-area" id="contentArea">
+                
+                <!-- GLOBAL FILTERS (Persistent for Dashboard and Evolution) -->
+                <div class="global-filters" id="globalFilters">
+                    <div class="filter-group">
+                        <label><i class="far fa-calendar-alt"></i> Período</label>
+                        <select id="dateFilter">
+                            <option value="d-1">Ontem (D-1)</option>
+                            <option value="d-2">Últimos 2 dias (D-2)</option>
+                            <option value="d-7">Últimos 7 dias (D-7)</option>
+                            <option value="d-30" selected>Últimos 30 dias (D-30)</option>
+                            <option value="week">Semana Atual</option>
+                            <option value="month">Mês Atual</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-filter"></i> Visão de Entidade</label>
+                        <select id="entityType">
+                            <option value="all">Frota Completa Geral</option>
+                            <option value="motorista">Filtrar por Motorista</option>
+                            <option value="placa">Filtrar por Equipamento</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" id="entityValueGroup" style="display: none;">
+                        <label><i class="fas fa-search"></i> Selecione</label>
+                        <select id="entityValue">
+                            <option value="">Aguardando...</option>
+                        </select>
+                    </div>
+                    <button id="applyFilterBtn" class="btn-primary"><i class="fas fa-sync-alt"></i> Atualizar Dados</button>
+                </div>
+
                 <!-- Dashboard Page -->
                 <div id="dashboardPage" class="page active">
                     
@@ -57,31 +92,31 @@
                         <div class="stat-card highlight-card">
                             <div class="stat-icon"><i class="fas fa-gas-pump"></i></div>
                             <div class="stat-info">
-                                <h3>Consumo Médio (Real Frota)</h3>
-                                <p id="avgConsumption">-- KM/L</p>
-                                <small>Meta Operacional: 1.80 KM/L</small>
+                                <h3>KM/L Real</h3>
+                                <p id="avgConsumption">--</p>
+                                <small>Meta: 1.80 KM/L</small>
                             </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon"><i class="fas fa-road"></i></div>
                             <div class="stat-info">
-                                <h3>Distância Total Percorrida</h3>
-                                <p id="totalDistance">-- KM</p>
+                                <h3>Distância Percorrida</h3>
+                                <p id="totalDistance">--</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon"><i class="fas fa-fill-drip"></i></div>
                             <div class="stat-info">
                                 <h3>Combustível Estimado</h3>
-                                <p id="totalFuel">-- Litros</p>
+                                <p id="totalFuel">--</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon"><i class="fas fa-truck-ramp-box"></i></div>
                             <div class="stat-info">
-                                <h3>Viagens/24h (Média frota)</h3>
-                                <p id="avgTripsPerDay">-- viagens</p>
-                                <small>Meta: 2 viagens por ciclo</small>
+                                <h3>Viagens/24h Média</h3>
+                                <p id="avgTripsPerDay">--</p>
+                                <small>Meta: 2 por ciclo</small>
                             </div>
                         </div>
                     </div>
@@ -89,13 +124,13 @@
                     <!-- Charts Row 1 -->
                     <div class="charts-row">
                         <div class="chart-card">
-                            <h3>Consumo Real por Motorista (Top 10)</h3>
+                            <h3><i class="fas fa-medal"></i> Desempenho por Motorista</h3>
                             <div class="chart-container">
                                 <canvas id="driverConsumptionChart"></canvas>
                             </div>
                         </div>
                         <div class="chart-card">
-                            <h3>Consumo Real por Caminhão (Top 10)</h3>
+                            <h3><i class="fas fa-truck"></i> Desempenho por Máquina</h3>
                             <div class="chart-container">
                                 <canvas id="truckConsumptionChart"></canvas>
                             </div>
@@ -105,38 +140,38 @@
                     <!-- Charts Row 2 -->
                     <div class="charts-row">
                         <div class="chart-card full-width">
-                            <h3>Tempo de Campo vs Fábrica (Horas)</h3>
+                            <h3><i class="fas fa-stopwatch"></i> Eficiência de Motor (Condução vs Ocioso)</h3>
                             <div class="chart-container">
                                 <canvas id="timeDistributionChart"></canvas>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Tables Row (Modern View) -->
+                    <!-- Tables Row -->
                     <div class="tables-row">
                         <div class="table-card danger-table">
-                            <h3><i class="fas fa-user-times"></i> Motoristas Críticos (Alto Consumo)</h3>
+                            <h3><i class="fas fa-user-times"></i> Motoristas Críticos (< 1.80 KM/L)</h3>
                             <div class="table-wrapper">
                                 <table id="driversTable">
                                     <thead>
-                                        <tr><th>Motorista</th><th>Consumo Real</th><th>Distância</th></tr>
+                                        <tr><th>Motorista</th><th>KM/L Real</th><th>Distância</th></tr>
                                     </thead>
                                     <tbody id="driversTableBody">
-                                        <tr><td colspan="3">Carregando...</td></tr>
+                                        <tr><td colspan="3" class="text-center">Aguardando dados...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                         
                         <div class="table-card warning-table">
-                            <h3><i class="fas fa-exclamation-circle"></i> Alertas de Frota (Equipamentos)</h3>
+                            <h3><i class="fas fa-exclamation-circle"></i> Alertas de Frota</h3>
                             <div class="table-wrapper">
                                 <table id="alertsTable">
                                     <thead>
-                                        <tr><th>Equipamento</th><th>Viagens/24h</th><th>Status</th></tr>
+                                        <tr><th>Placa</th><th>Viagens/Dia</th><th>Alerta</th></tr>
                                     </thead>
                                     <tbody id="alertsTableBody">
-                                        <tr><td colspan="3">Carregando...</td></tr>
+                                        <tr><td colspan="3" class="text-center">Aguardando dados...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -146,23 +181,10 @@
                 
                 <!-- Evolução de Consumo Page -->
                 <div id="consumoEvolutionPage" class="page">
-                    <div class="filter-bar">
-                        <div class="filter-group">
-                            <label for="filterType">Analisar Desempenho de:</label>
-                            <select id="filterType">
-                                <option value="motorista">Motorista</option>
-                                <option value="caminhao">Equipamento (Placa)</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label for="filterValue">Selecionar:</label>
-                            <select id="filterValue">
-                                <option value="">Aguardando seleção...</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="chart-card full-width">
-                        <div class="chart-container" style="height: 400px;">
+                    <div class="chart-card full-width" style="margin-bottom: 24px;">
+                        <h3><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Esta visão obedece aos filtros globais de período e entidade selecionados no topo da página.</p>
+                        <div class="chart-container" style="height: 450px;">
                             <canvas id="evolutionChart"></canvas>
                         </div>
                     </div>
@@ -171,22 +193,22 @@
                 <!-- Configurações Page -->
                 <div id="configuracoesPage" class="page">
                     <div class="config-card">
-                        <h2><i class="fas fa-file-csv"></i> Painel de Importação</h2>
-                        <p>Arraste os relatórios de viagem do rastreador. O sistema irá compilar os dados, ignorando automaticamente placas de apoio (GSR0001, GSR0002, etc).</p>
+                        <h2><i class="fas fa-database"></i> Motor de Importação Inteligente</h2>
+                        <p>Envie relatórios CSV. O sistema limpará duplicatas e ignorará placas de apoio administrativas automaticamente.</p>
                         
                         <div class="upload-area" id="uploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Arraste e solte arquivos CSV aqui ou clique para selecionar</p>
+                            <p>Arraste arquivos CSV ou clique para navegar</p>
                             <input type="file" id="csvFileInput" accept=".csv" multiple style="display: none;">
-                            <button id="selectFilesBtn" class="btn-primary">Selecionar Arquivos</button>
+                            <button id="selectFilesBtn" class="btn-primary">Importar Arquivos</button>
                         </div>
                         <div id="importStatus" class="import-status" style="display: none;"></div>
                         <div id="importLog" class="import-log"></div>
 
                         <div class="danger-zone">
-                            <h3><i class="fas fa-exclamation-triangle"></i> Zona de Perigo</h3>
-                            <p>Utilize esta função para resetar o painel para iniciar um novo mês ou corrigir dados corrompidos. Isso apagará todas as viagens do banco de dados.</p>
-                            <button id="deleteAllBtn" class="btn-danger"><i class="fas fa-trash-alt"></i> Limpar Banco de Dados</button>
+                            <h3><i class="fas fa-skull-crossbones"></i> Danger Zone (Reset Geral)</h3>
+                            <p>Cuidado: Esta ação apaga o banco de dados inteiro na nuvem. Use apenas para virada de mês limpa ou correção severa de dados.</p>
+                            <button id="deleteAllBtn" class="btn-danger"><i class="fas fa-trash-alt"></i> Formatar Banco de Dados</button>
                         </div>
                     </div>
                 </div>
