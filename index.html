@@ -25,7 +25,7 @@
                     <span>Dashboard Principal</span>
                 </a>
                 <a href="#" class="nav-item" data-page="consumo-evolution">
-                    <i class="fas fa-chart-line"></i>
+                    <i class="fas fa-route"></i>
                     <span>Evolução de Consumo</span>
                 </a>
                 <a href="#" class="nav-item" data-page="configuracoes">
@@ -44,7 +44,7 @@
                 <h1 id="pageTitle">Dashboard Principal</h1>
                 <div class="user-info">
                     <i class="fas fa-user-circle"></i>
-                    <span>Operador</span>
+                    <span>Serrana Florestal</span>
                 </div>
             </header>
             
@@ -52,52 +52,52 @@
                 <!-- Dashboard Page -->
                 <div id="dashboardPage" class="page active">
                     <div class="stats-grid">
-                        <div class="stat-card">
+                        <div class="stat-card highlight-card">
                             <div class="stat-icon"><i class="fas fa-gas-pump"></i></div>
                             <div class="stat-info">
-                                <h3>Consumo Médio (Geral)</h3>
+                                <h3>Consumo Médio (Real Frota)</h3>
                                 <p id="avgConsumption">-- KM/L</p>
-                                <small>Meta: 1.80 KM/L</small>
+                                <small>Meta Operacional: 1.80 KM/L</small>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                            <div class="stat-icon"><i class="fas fa-road"></i></div>
                             <div class="stat-info">
-                                <h3>Consumo Médio (Motoristas)</h3>
-                                <p id="avgDriverConsumption">-- KM/L</p>
+                                <h3>Distância Total Percorrida</h3>
+                                <p id="totalDistance">-- KM</p>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon"><i class="fas fa-truck"></i></div>
+                            <div class="stat-icon"><i class="fas fa-fill-drip"></i></div>
                             <div class="stat-info">
-                                <h3>Consumo Médio (Caminhões)</h3>
-                                <p id="avgTruckConsumption">-- KM/L</p>
+                                <h3>Combustível Estimado</h3>
+                                <p id="totalFuel">-- Litros</p>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon"><i class="fas fa-chart-simple"></i></div>
+                            <div class="stat-icon"><i class="fas fa-truck-ramp-box"></i></div>
                             <div class="stat-info">
-                                <h3>Viagens/24h (Média)</h3>
+                                <h3>Viagens/24h (Média frota)</h3>
                                 <p id="avgTripsPerDay">-- viagens</p>
-                                <small>Meta: 2 viagens</small>
+                                <small>Meta: 2 viagens por ciclo</small>
                             </div>
                         </div>
                     </div>
                     
                     <div class="charts-row">
                         <div class="chart-card">
-                            <h3>Consumo por Motorista</h3>
-                            <canvas id="driverConsumptionChart" width="400" height="300"></canvas>
+                            <h3>Consumo Real por Motorista (Top 10)</h3>
+                            <canvas id="driverConsumptionChart" width="400" height="250"></canvas>
                         </div>
                         <div class="chart-card">
-                            <h3>Consumo por Caminhão</h3>
-                            <canvas id="truckConsumptionChart" width="400" height="300"></canvas>
+                            <h3>Consumo Real por Caminhão (Top 10)</h3>
+                            <canvas id="truckConsumptionChart" width="400" height="250"></canvas>
                         </div>
                     </div>
                     <div class="charts-row">
                         <div class="chart-card full-width">
-                            <h3>Tempo de Campo vs Fábrica</h3>
-                            <canvas id="timeDistributionChart" width="400" height="300"></canvas>
+                            <h3>Tempo de Campo vs Fábrica (Horas)</h3>
+                            <canvas id="timeDistributionChart" width="400" height="200"></canvas>
                         </div>
                     </div>
                     
@@ -106,10 +106,10 @@
                         <div class="table-wrapper">
                             <table id="alertsTable">
                                 <thead>
-                                    <tr><th>Caminhão</th><th>Motorista</th><th>Consumo (KM/L)</th><th>Viagens/24h</th><th>Status</th></tr>
+                                    <tr><th>Equipamento</th><th>Consumo Real (KM/L)</th><th>Viagens/24h</th><th>Status da Máquina</th></tr>
                                 </thead>
                                 <tbody id="alertsTableBody">
-                                    <tr><td colspan="5">Carregando dados...</td></tr>
+                                    <tr><td colspan="4">Carregando dados...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -120,29 +120,30 @@
                 <div id="consumoEvolutionPage" class="page">
                     <div class="filter-bar">
                         <div class="filter-group">
-                            <label for="filterType">Visualizar por:</label>
+                            <label for="filterType">Analisar Desempenho de:</label>
                             <select id="filterType">
                                 <option value="motorista">Motorista</option>
-                                <option value="caminhao">Caminhão</option>
+                                <option value="caminhao">Equipamento (Placa)</option>
                             </select>
                         </div>
                         <div class="filter-group">
                             <label for="filterValue">Selecionar:</label>
                             <select id="filterValue">
-                                <option value="">Selecione um item</option>
+                                <option value="">Aguardando seleção...</option>
                             </select>
                         </div>
                     </div>
                     <div class="chart-card full-width">
-                        <canvas id="evolutionChart" width="800" height="400"></canvas>
+                        <canvas id="evolutionChart" width="800" height="350"></canvas>
                     </div>
                 </div>
                 
                 <!-- Configurações Page -->
                 <div id="configuracoesPage" class="page">
                     <div class="config-card">
-                        <h2><i class="fas fa-upload"></i> Importação de Arquivos CSV</h2>
-                        <p>Selecione os arquivos de relatório de viagem para importar para o sistema.</p>
+                        <h2><i class="fas fa-file-csv"></i> Painel de Importação</h2>
+                        <p>Arraste os relatórios de viagem do rastreador. O sistema irá compilar os dados, ignorando automaticamente placas de apoio.</p>
+                        
                         <div class="upload-area" id="uploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
                             <p>Arraste e solte arquivos CSV aqui ou clique para selecionar</p>
@@ -151,6 +152,12 @@
                         </div>
                         <div id="importStatus" class="import-status" style="display: none;"></div>
                         <div id="importLog" class="import-log"></div>
+
+                        <div class="danger-zone">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Zona de Perigo</h3>
+                            <p>Utilize esta função apenas se precisar resetar o painel para iniciar um novo mês ou corrigir dados corrompidos. Isso apagará todas as viagens do banco de dados.</p>
+                            <button id="deleteAllBtn" class="btn-danger"><i class="fas fa-trash-alt"></i> Limpar Banco de Dados</button>
+                        </div>
                     </div>
                 </div>
             </div>

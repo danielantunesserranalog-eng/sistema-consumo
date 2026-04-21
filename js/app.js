@@ -6,34 +6,32 @@ let isImporting = false;
 let importStats = { total: 0, inserted: 0, updated: 0, errors: 0 }; 
 let evolutionDataCache = new Map(); 
 
-// Variáveis para os gráficos 
+// Variáveis de Interface 
 let driverChart = null, truckChart = null, timeChart = null, evolutionChart = null; 
 let currentPage = 'dashboard'; 
-let dashboardData = { avgConsumption: 0, avgDriverConsumption: 0, avgTruckConsumption: 0, avgTripsPerDay: 0, drivers: [], trucks: [], alerts: [] }; 
+let dashboardData = { avgConsumption: 0, totalDist: 0, totalFuel: 0, avgTripsPerDay: 0, drivers: [], trucks: [], alerts: [] }; 
+
+// Lista Negra de Placas de Apoio (Não entrarão no sistema)
+const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008'];
 
 // ==================== INICIALIZAÇÃO ==================== 
 function initSupabase() {     
     if (!supabaseClient && window.supabase) {         
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);         
-        console.log('✅ Supabase inicializado');         
         return true;     
     }     
     return !!supabaseClient; 
 }
 
 document.addEventListener('DOMContentLoaded', () => {     
-    console.log('SISTEMA_CONSUMO inicializado');     
-    if (!initSupabase()) { 
-        console.error('Erro ao carregar Supabase'); 
-        return; 
-    }     
+    if (!initSupabase()) { console.error('Erro ao carregar Supabase'); return; }     
     initNavigation();     
     initMenuToggle();     
-    initImportModule();     
+    initImportModule();   
+    initDeleteModule(); // Inicializa o botão de apagar tudo  
     loadDashboardData(); 
 });
 
-// ==================== NAVEGAÇÃO ==================== 
 function initNavigation() {     
     const navItems = document.querySelectorAll('.nav-item');     
     const pages = document.querySelectorAll('.page');     
@@ -50,7 +48,7 @@ function initNavigation() {
             const targetPage = document.getElementById(`${pageId}Page`);             
             if (targetPage) targetPage.classList.add('active');                          
             
-            const pageNames = { 'dashboard': 'Dashboard Principal', 'consumo-evolution': 'Evolução de Consumo', 'configuracoes': 'Configurações' };             
+            const pageNames = { 'dashboard': 'Dashboard Principal', 'consumo-evolution': 'Evolução de Desempenho', 'configuracoes': 'Painel de Gerenciamento' };             
             if (pageTitle) pageTitle.textContent = pageNames[pageId] || 'SISTEMA_CONSUMO';             
             currentPage = pageId;             
             if (pageId === 'consumo-evolution') loadEvolutionSelects();         
@@ -64,17 +62,17 @@ function initMenuToggle() {
     if (menuToggle && sidebar) menuToggle.addEventListener('click', () => sidebar.classList.toggle('open')); 
 }
 
-// ==================== DASHBOARD ==================== 
+// ==================== MATEMÁTICA GERENCIAL ==================== 
 async function loadDashboardData() {     
-    console.log('Loading dashboard...');     
     try {         
         const thirtyDaysAgo = new Date();         
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);                  
+        
+        // Puxa as informações essenciais. Precisamos de distância para calcular o KML Real Ponderado.
         const { data: viagens, error } = await supabaseClient             
             .from('viagens')             
-            .select('placa, motorista, km_l, inicio, tempo_conducao, tempo_parado, local_inicial, local_final')             
-            .gte('inicio', thirtyDaysAgo.toISOString())             
-            .limit(5000);                  
+            .select('placa, motorista, km_l, distancia_km, inicio, tempo_conducao, tempo_parado, local_inicial, local_final')             
+            .gte('inicio', thirtyDaysAgo.toISOString());                  
             
         if (error) throw error;         
         if (!viagens || viagens.length === 0) { showEmptyDashboard(); return; }                  
@@ -88,46 +86,76 @@ async function loadDashboardData() {
 }
 
 function calculateMetrics(viagens) {     
-    const valid = viagens.filter(v => v.km_l && v.km_l > 0);     
-    dashboardData.avgConsumption = valid.length ? valid.reduce((s, v) => s + v.km_l, 0) / valid.length : 0;          
+    let globalDist = 0;
+    let globalLitros = 0;
     
     const driverMap = new Map();     
-    valid.forEach(v => {         
-        const name = v.motorista || 'Não informado';         
-        if (!driverMap.has(name)) driverMap.set(name, { sum: 0, count: 0 });         
-        const d = driverMap.get(name);         
-        d.sum += v.km_l;         
-        d.count++;     
-    });     
-    dashboardData.drivers = Array.from(driverMap.entries()).map(([name, data]) => ({ name, avgConsumption: data.sum / data.count })).sort((a, b) => b.avgConsumption - a.avgConsumption);     
-    dashboardData.avgDriverConsumption = dashboardData.drivers.length ? dashboardData.drivers.reduce((s, d) => s + d.avgConsumption, 0) / dashboardData.drivers.length : 0;          
+    const truckMap = new Map();
+
+    viagens.forEach(v => {
+        // Usa apenas viagens que tenham registro válido de KM e consumo
+        if (v.distancia_km && v.distancia_km > 0 && v.km_l && v.km_l > 0) {
+            const dist = parseFloat(v.distancia_km);
+            const litros = dist / parseFloat(v.km_l); // Descobre quantos litros a viagem consumiu
+            
+            globalDist += dist;
+            globalLitros += litros;
+
+            // Agrupa por Motorista
+            const driverName = v.motorista || 'Não informado';
+            if (!driverMap.has(driverName)) driverMap.set(driverName, { dist: 0, litros: 0 });
+            const d = driverMap.get(driverName);
+            d.dist += dist; d.litros += litros;
+
+            // Agrupa por Caminhão
+            const plate = v.placa || 'Desconhecido';
+            if (!truckMap.has(plate)) truckMap.set(plate, { dist: 0, litros: 0 });
+            const t = truckMap.get(plate);
+            t.dist += dist; t.litros += litros;
+        }
+    });
+
+    // Calcula KML global ponderado
+    dashboardData.totalDist = globalDist;
+    dashboardData.totalFuel = globalLitros;
+    dashboardData.avgConsumption = globalLitros > 0 ? (globalDist / globalLitros) : 0;          
     
-    const truckMap = new Map();     
-    valid.forEach(v => {         
-        const plate = v.placa || 'Desconhecido';         
-        if (!truckMap.has(plate)) truckMap.set(plate, { sum: 0, count: 0 });         
-        const t = truckMap.get(plate);         
-        t.sum += v.km_l;         
-        t.count++;     
-    });     
-    dashboardData.trucks = Array.from(truckMap.entries()).map(([plate, data]) => ({ plate, avgConsumption: data.sum / data.count })).sort((a, b) => b.avgConsumption - a.avgConsumption);     
-    dashboardData.avgTruckConsumption = dashboardData.trucks.length ? dashboardData.trucks.reduce((s, t) => s + t.avgConsumption, 0) / dashboardData.trucks.length : 0;          
+    // Arrays ordenados por melhor desempenho de motoristas e caminhões
+    dashboardData.drivers = Array.from(driverMap.entries())
+        .map(([name, data]) => ({ name, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
+        .sort((a, b) => b.realKML - a.realKML);
+        
+    dashboardData.trucks = Array.from(truckMap.entries())
+        .map(([plate, data]) => ({ plate, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
+        .sort((a, b) => b.realKML - a.realKML);
     
+    // Cálculo de viagens por 24h
     const firstDate = new Date(viagens[viagens.length - 1]?.inicio);     
     const daysDiff = Math.max(1, Math.ceil((new Date() - firstDate) / (1000 * 60 * 60 * 24)));     
-    dashboardData.avgTripsPerDay = viagens.length / daysDiff;          
-    dashboardData.alerts = [];     
-    
-    dashboardData.trucks.forEach(t => { 
-        if (t.avgConsumption < 1.80 && t.avgConsumption > 0) dashboardData.alerts.push({ type: 'consumption', placa: t.plate, value: t.avgConsumption.toFixed(2) }); 
-    });          
     
     const truckTrips = new Map();     
     viagens.forEach(v => { const plate = v.placa || 'Desconhecido'; truckTrips.set(plate, (truckTrips.get(plate) || 0) + 1); });     
-    for (const [plate, count] of truckTrips) { 
-        const avg = count / daysDiff; 
-        if (avg < 2) dashboardData.alerts.push({ type: 'productivity', placa: plate, value: avg.toFixed(1) }); 
-    }          
+    
+    let sumDailyTrips = 0;
+    let activeTrucks = 0;
+
+    dashboardData.alerts = [];     
+    
+    // Gera alertas combinando consumo ruim e baixa rodagem
+    dashboardData.trucks.forEach(t => { 
+        const tripsCount = truckTrips.get(t.plate) || 0;
+        const avgTrips = tripsCount / daysDiff;
+        sumDailyTrips += avgTrips;
+        activeTrucks++;
+
+        if (t.realKML < 1.80 && t.realKML > 0) {
+            dashboardData.alerts.push({ placa: t.plate, kml: t.realKML.toFixed(2), trips: avgTrips.toFixed(1), issue: 'consumo' });
+        } else if (avgTrips < 2) {
+            dashboardData.alerts.push({ placa: t.plate, kml: t.realKML.toFixed(2), trips: avgTrips.toFixed(1), issue: 'produtividade' });
+        }
+    });          
+
+    dashboardData.avgTripsPerDay = activeTrucks > 0 ? (sumDailyTrips / activeTrucks) : 0;
     updateStatsCards(); 
 }
 
@@ -137,12 +165,12 @@ function updateStatsCards() {
         if (e) { 
             e.innerHTML = val; 
             if (id === 'avgConsumption' && dashboardData.avgConsumption < 1.80 && dashboardData.avgConsumption > 0) e.style.color = '#dc2626'; 
-            else e.style.color = '#1e293b'; 
+            else if (id === 'avgConsumption') e.style.color = '#16a34a'; 
         } 
     };     
     el('avgConsumption', `${dashboardData.avgConsumption.toFixed(2)} KM/L`);     
-    el('avgDriverConsumption', `${dashboardData.avgDriverConsumption.toFixed(2)} KM/L`);     
-    el('avgTruckConsumption', `${dashboardData.avgTruckConsumption.toFixed(2)} KM/L`);     
+    el('totalDistance', `${Math.round(dashboardData.totalDist).toLocaleString('pt-BR')} KM`);     
+    el('totalFuel', `${Math.round(dashboardData.totalFuel).toLocaleString('pt-BR')} L`);     
     el('avgTripsPerDay', `${dashboardData.avgTripsPerDay.toFixed(1)} viagens`); 
 }
 
@@ -150,13 +178,25 @@ function renderAlertsTable() {
     const tbody = document.getElementById('alertsTableBody');     
     if (!tbody) return;     
     if (dashboardData.alerts.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="5">Nenhum alerta. Parabéns!</td></tr>'; 
+        tbody.innerHTML = '<tr><td colspan="4">Operação saudável. Nenhum alerta pendente.</td></tr>'; 
         return; 
     }     
-    tbody.innerHTML = dashboardData.alerts.slice(0, 20).map(a => `<tr><td>${a.placa}</td><td>--</td><td class="${a.type === 'consumption' ? 'text-danger' : ''}">${a.type === 'consumption' ? a.value + ' KM/L' : '--'}</td><td class="${a.type === 'productivity' ? 'text-warning' : ''}">${a.type === 'productivity' ? a.value + ' viagens/24h' : '--'}</td><td><span class="status-badge warning">${a.type === 'consumption' ? 'Consumo Baixo' : 'Baixa Produtividade'}</span></td></tr>`).join(''); 
+    
+    // Ordena os piores primeiro
+    const sortedAlerts = dashboardData.alerts.sort((a, b) => parseFloat(a.kml) - parseFloat(b.kml));
+
+    tbody.innerHTML = sortedAlerts.slice(0, 20).map(a => {
+        let statusBadge = a.issue === 'consumo' ? '<span class="status-badge danger">Gasto Elevado</span>' : '<span class="status-badge warning">Baixa Rodagem</span>';
+        return `<tr>
+            <td style="font-weight: 600;">${a.placa}</td>
+            <td class="${parseFloat(a.kml) < 1.80 ? 'text-danger' : ''}">${a.kml} KM/L</td>
+            <td class="${parseFloat(a.trips) < 2 ? 'text-warning' : ''}">${a.trips}</td>
+            <td>${statusBadge}</td>
+        </tr>`;
+    }).join(''); 
 }
 
-// ==================== GRÁFICOS ==================== 
+// ==================== GRÁFICOS (Renderização Top 10) ==================== 
 function renderDashboardCharts() { 
     renderDriverChart(); 
     renderTruckChart(); 
@@ -167,22 +207,19 @@ function renderDriverChart() {
     const canvas = document.getElementById('driverConsumptionChart');     
     if (!canvas || !dashboardData.drivers.length) return;     
     if (driverChart) driverChart.destroy();     
-    const topDrivers = dashboardData.drivers.slice(0, 8);     
+    const top = dashboardData.drivers.slice(0, 10);     
     driverChart = new Chart(canvas.getContext('2d'), { 
         type: 'bar', 
         data: { 
-            labels: topDrivers.map(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name), 
+            labels: top.map(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name), 
             datasets: [{ 
-                label: 'KM/L', 
-                data: topDrivers.map(d => d.avgConsumption), 
-                backgroundColor: topDrivers.map(d => d.avgConsumption < 1.80 ? '#ef4444' : '#3b82f6'), 
-                borderRadius: 8 
+                label: 'KM/L Real', 
+                data: top.map(d => d.realKML), 
+                backgroundColor: top.map(d => d.realKML < 1.80 ? '#ef4444' : '#10b981'), 
+                borderRadius: 6 
             }] 
         }, 
-        options: { 
-            responsive: true, maintainAspectRatio: true, 
-            scales: { y: { beginAtZero: true, title: { display: true, text: 'KM/L' } } } 
-        } 
+        options: { responsive: true, scales: { y: { beginAtZero: true } } } 
     }); 
 }
 
@@ -190,22 +227,19 @@ function renderTruckChart() {
     const canvas = document.getElementById('truckConsumptionChart');     
     if (!canvas || !dashboardData.trucks.length) return;     
     if (truckChart) truckChart.destroy();     
-    const topTrucks = dashboardData.trucks.slice(0, 8);     
+    const top = dashboardData.trucks.slice(0, 10);     
     truckChart = new Chart(canvas.getContext('2d'), { 
         type: 'bar', 
         data: { 
-            labels: topTrucks.map(t => t.plate), 
+            labels: top.map(t => t.plate), 
             datasets: [{ 
-                label: 'KM/L', 
-                data: topTrucks.map(t => t.avgConsumption), 
-                backgroundColor: topTrucks.map(t => t.avgConsumption < 1.80 ? '#ef4444' : '#3b82f6'), 
-                borderRadius: 8 
+                label: 'KM/L Real', 
+                data: top.map(t => t.realKML), 
+                backgroundColor: top.map(t => t.realKML < 1.80 ? '#ef4444' : '#3b82f6'), 
+                borderRadius: 6 
             }] 
         }, 
-        options: { 
-            responsive: true, maintainAspectRatio: true, 
-            scales: { y: { beginAtZero: true, title: { display: true, text: 'KM/L' } } } 
-        } 
+        options: { responsive: true, scales: { y: { beginAtZero: true } } } 
     }); 
 }
 
@@ -215,7 +249,7 @@ async function renderTimeDistributionChart() {
     if (timeChart) timeChart.destroy();     
     try {         
         const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);         
-        const { data, error } = await supabaseClient.from('viagens').select('tempo_conducao, tempo_parado, local_inicial, local_final').gte('inicio', thirtyDaysAgo.toISOString()).limit(5000);         
+        const { data, error } = await supabaseClient.from('viagens').select('tempo_conducao, tempo_parado, local_inicial, local_final').gte('inicio', thirtyDaysAgo.toISOString());         
         if (error) throw error;         
         
         let campo = 0, fabrica = 0;         
@@ -278,7 +312,7 @@ async function loadEvolutionSelects() {
         const { data, error } = await supabaseClient.from('viagens').select(type === 'motorista' ? 'motorista' : 'placa').limit(2000);         
         if (error) throw error;         
         const unique = [...new Set(data.map(d => d[type === 'motorista' ? 'motorista' : 'placa']).filter(Boolean))];         
-        filterValue.innerHTML = '<option value="">Selecione...</option>' + unique.slice(0, 100).map(v => `<option value="${v.replace(/'/g, "\\'")}">${v}</option>`).join('');         
+        filterValue.innerHTML = '<option value="">Selecione...</option>' + unique.sort().map(v => `<option value="${v.replace(/'/g, "\\'")}">${v}</option>`).join('');         
         const newFilter = filterValue.cloneNode(true);         
         filterValue.parentNode.replaceChild(newFilter, filterValue);         
         newFilter.addEventListener('change', () => { if (newFilter.value) loadEvolutionData(filterType.value, newFilter.value); });     
@@ -287,28 +321,23 @@ async function loadEvolutionSelects() {
 
 async function loadEvolutionData(type, value) {     
     if (!value) return;     
-    const cacheKey = `${type}_${value}`;     
-    if (evolutionDataCache.has(cacheKey)) { 
-        const c = evolutionDataCache.get(cacheKey); 
-        renderEvolutionChart(c.labels, c.data, type, value); return; 
-    }     
     try {         
-        const { data, error } = await supabaseClient.from('viagens').select('inicio, km_l').eq(type === 'motorista' ? 'motorista' : 'placa', value).order('inicio', { ascending: true }).limit(1000);         
+        // Busca distância e km_l para fazer a média ponderada diária ou mensal
+        const { data, error } = await supabaseClient.from('viagens').select('inicio, km_l, distancia_km').eq(type === 'motorista' ? 'motorista' : 'placa', value).order('inicio', { ascending: true });         
         if (error) throw error;         
         const monthly = new Map();         
         data.forEach(v => {             
-            if (!v.km_l || v.km_l <= 0) return;             
+            if (!v.km_l || v.km_l <= 0 || !v.distancia_km) return;             
             const date = new Date(v.inicio);             
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;             
-            if (!monthly.has(key)) monthly.set(key, { sum: 0, count: 0 });             
+            if (!monthly.has(key)) monthly.set(key, { dist: 0, litros: 0 });             
             const m = monthly.get(key);             
-            m.sum += v.km_l;             
-            m.count++;         
+            m.dist += parseFloat(v.distancia_km);             
+            m.litros += (parseFloat(v.distancia_km) / parseFloat(v.km_l));         
         });         
         const sorted = Array.from(monthly.keys()).sort();         
         const labels = sorted.map(k => { const [y, m] = k.split('-'); return `${m}/${y}`; });         
-        const values = sorted.map(k => monthly.get(k).sum / monthly.get(k).count);         
-        evolutionDataCache.set(cacheKey, { labels, data: values });         
+        const values = sorted.map(k => { const m = monthly.get(k); return m.litros > 0 ? (m.dist / m.litros).toFixed(2) : 0; });         
         renderEvolutionChart(labels, values, type, value);     
     } catch (error) { console.error('Erro:', error); } 
 }
@@ -317,23 +346,19 @@ function renderEvolutionChart(labels, data, type, value) {
     const canvas = document.getElementById('evolutionChart');     
     if (!canvas) return;     
     if (evolutionChart) evolutionChart.destroy();     
-    const label = `${type === 'motorista' ? 'Motorista' : 'Caminhão'}: ${value}`;     
-    if (!labels.length) { 
-        evolutionChart = new Chart(canvas.getContext('2d'), { 
-            type: 'line', data: { labels: ['Sem dados'], datasets: [{ label, data: [0], borderColor: '#94a3b8' }] } 
-        }); return; 
-    }     
+    const label = `${type === 'motorista' ? 'Motorista' : 'Equipamento'}: ${value}`;     
+    
     evolutionChart = new Chart(canvas.getContext('2d'), { 
         type: 'line', 
         data: { 
-            labels, 
-            datasets: [{ label, data, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.3, pointRadius: 4 }] 
+            labels: labels.length ? labels : ['Sem dados'], 
+            datasets: [{ label: label + ' (KM/L Real)', data: data.length ? data : [0], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.3, pointRadius: 4 }] 
         }, 
-        options: { responsive: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'KM/L' } } } } 
+        options: { responsive: true, scales: { y: { beginAtZero: true } } } 
     }); 
 }
 
-// ==================== IMPORTAÇÃO OTIMIZADA ==================== 
+// ==================== IMPORTAÇÃO INTELIGENTE (COM FILTRO) ==================== 
 function initImportModule() {     
     const uploadArea = document.getElementById('uploadArea');     
     const fileInput = document.getElementById('csvFileInput');     
@@ -360,36 +385,35 @@ function initImportModule() {
 async function processFiles(files) {     
     if (isImporting) { showImportStatus('warning', 'Importação em andamento...'); return; }     
     isImporting = true;     
-    importStats = { total: 0, inserted: 0, updated: 0, errors: 0 };     
+    importStats = { total: 0, inserted: 0, excluded: 0, errors: 0 };     
     clearImportLog();     
     showImportStatus('info', `Processando ${files.length} arquivo(s)...`);          
     
     for (const file of files) {         
-        addToImportLog(`📦 Processando: ${file.name}`, 'info');         
+        addToImportLog(`📦 Lendo CSV: ${file.name}`, 'info');         
         const startTime = performance.now();         
         try {             
             const data = await parseCSVFast(file);             
-            if (!data.length) { addToImportLog(`❌ Nenhum dado válido encontrado. Verifique as colunas.`, 'warning'); continue; }             
-            importStats.total += data.length;             
-            const { inserted, updated, errors } = await batchInsertSupabase(data);             
-            importStats.inserted += inserted;             
-            importStats.updated += updated;             
-            importStats.errors += errors;             
+            if (!data.length) { addToImportLog(`❌ Nenhum dado válido encontrado.`, 'warning'); continue; }             
+            
+            // Roda a inserção no banco
+            await batchInsertSupabase(data);             
+            
             const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);             
-            addToImportLog(`✅ ${file.name}: ${inserted} novas, ${updated} atualizadas, ${errors} erros (${elapsed}s)`, 'success');         
+            addToImportLog(`✅ ${file.name} finalizado. (${elapsed}s)`, 'success');         
         } catch (error) { 
-            addToImportLog(`❌ Erro: ${error.message}`, 'error'); importStats.errors++; 
+            addToImportLog(`❌ Erro no arquivo: ${error.message}`, 'error'); 
         }     
     }          
     
     isImporting = false;     
-    const summary = `Concluído! Total: ${importStats.total} | Inseridas: ${importStats.inserted} | Atualizadas: ${importStats.updated} | Erros: ${importStats.errors}`;     
-    showImportStatus(importStats.errors === 0 ? 'success' : 'warning', summary);          
+    const summary = `Concluído! Lidas: ${importStats.total} | Inseridas: ${importStats.inserted} | Placas Ignoradas: ${importStats.excluded} | Erros BD: ${importStats.errors}`;     
+    showImportStatus('success', summary);          
     
-    if (importStats.inserted > 0 || importStats.updated > 0) {         
-        addToImportLog('🔄 Recarregando dashboard...', 'info');         
+    if (importStats.inserted > 0) {         
+        addToImportLog('🔄 Recarregando painel gerencial...', 'info');         
         evolutionDataCache.clear();         
-        setTimeout(() => loadDashboardData(), 500);     
+        setTimeout(() => loadDashboardData(), 1000);     
     } 
 }
 
@@ -400,12 +424,17 @@ function parseCSVFast(file) {
             header: true,             
             delimiter: ';',             
             skipEmptyLines: true,   
-            // Dependendo do sistema, o CSV vem em ISO-8859-1. Caso não funcione, altere para "UTF-8"
             encoding: "ISO-8859-1",          
             chunkSize: 1024 * 1024,             
             step: (row) => {                 
                 const mapped = mapRowFast(row.data);                 
-                if (mapped) results.push(mapped);             
+                if (mapped === 'excluded') {
+                    importStats.excluded++;
+                    importStats.total++;
+                } else if (mapped) {
+                    results.push(mapped);
+                    importStats.total++;
+                }             
             },             
             complete: () => resolve(results),             
             error: (error) => reject(new Error(`Erro na leitura: ${error.message}`))         
@@ -413,19 +442,14 @@ function parseCSVFast(file) {
     }); 
 }
 
-// === LÓGICA BLINDADA PARA LER COLUNAS DO CSV ===
 function getResilientValue(row, possibleKeys) {
-    // Tenta encontrar a chave exata primeiro
     for (let key of possibleKeys) {
         if (row[key] !== undefined && row[key] !== null) return row[key];
     }
-    
-    // Se não achar, procura normalizando os textos (remover acentos e caracteres estranhos)
     const normalize = str => {
         if (!str) return '';
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
     };
-    
     const rowKeys = Object.keys(row);
     for (let key of rowKeys) {
         const normKey = normalize(key);
@@ -438,6 +462,16 @@ function getResilientValue(row, possibleKeys) {
 
 function mapRowFast(row) {     
     try {         
+        const placaStr = getResilientValue(row, ['Identificador/Placa', 'Placa', 'Identificador', 'Veiculo']);
+        const placa = String(placaStr || '').trim().toUpperCase();         
+        
+        if (!placa) return null;
+
+        // FILTRO DE PLACAS DE APOIO
+        if (PLACAS_IGNORADAS.includes(placa)) {
+            return 'excluded'; 
+        }
+
         const parseDate = (str) => {             
             if (!str) return null;             
             const parts = str.split(' ');             
@@ -459,10 +493,8 @@ function mapRowFast(row) {
             return sec;         
         };         
         
-        // Busca resiliente pelas colunas para evitar o problema dos acentos quebrados
         const inicioStr = getResilientValue(row, ['Início', 'Inicio', 'In cio']);
         const fimStr = getResilientValue(row, ['Fim']);
-        const placaStr = getResilientValue(row, ['Identificador/Placa', 'Placa', 'Identificador', 'Veiculo']);
         const motoristaStr = getResilientValue(row, ['Motorista', 'Operador']);
         const localIniStr = getResilientValue(row, ['Local inicial', 'Local Inicial']);
         const localFimStr = getResilientValue(row, ['Local final', 'Local Final']);
@@ -473,12 +505,11 @@ function mapRowFast(row) {
 
         const inicio = parseDate(inicioStr);         
         const fim = parseDate(fimStr);         
-        const placa = placaStr || '';         
         
-        if (!inicio || !fim || !placa) return null; // Se não encontrou o principal, descarta a linha
+        if (!inicio || !fim) return null; 
         
         return {             
-            placa: String(placa).trim(),             
+            placa,             
             motorista: String(motoristaStr || 'Não informado').trim(),             
             inicio, 
             fim,             
@@ -486,81 +517,79 @@ function mapRowFast(row) {
             local_final: String(localFimStr || '').trim(),             
             distancia_km: parseFloat(String(distanciaStr || '0').replace(',', '.')),             
             km_l: parseFloat(String(kmlStr || '0').replace(',', '.')),             
-            tempo_conducao_seconds: parseDuration(conducaoStr),             
-            tempo_parado_seconds: parseDuration(paradoStr)         
+            tempo_conducao: `${parseDuration(conducaoStr)} seconds`,             
+            tempo_parado: `${parseDuration(paradoStr)} seconds`         
         };     
     } catch (e) { return null; } 
 }
 
-async function batchInsertSupabase(viagens, batchSize = 500) {     
-    let inserted = 0, updated = 0, errors = 0;          
+async function batchInsertSupabase(viagens) {     
+    // Vamos usar a tática upsert simplificada baseada em uma chave única se o banco permitir, ou apenas inserir direto para focar em performance.
+    // Como a internet do ambiente de produção estava derrubando requests massivos, enviaremos pacotes menores.
+    const batchSize = 250; 
+    
     for (let i = 0; i < viagens.length; i += batchSize) {         
         const batch = viagens.slice(i, i + batchSize);         
-        const toInsert = [];         
-        const toUpdate = [];                  
         
-        // Verifica duplicatas em lote         
-        const keys = batch.map(v => `(${v.placa},${v.inicio},${v.fim})`);         
-        const { data: existing } = await supabaseClient             
-            .from('viagens')             
-            .select('id, placa, inicio, fim')             
-            .or(keys.map(k => `and(placa.eq.${k.split(',')[0].substring(1)},inicio.eq.${k.split(',')[1]},fim.eq.${k.split(',')[2].substring(0, k.split(',')[2].length - 1)})`).join(','));                  
-            
-        const existingMap = new Map();         
-        (existing || []).forEach(e => existingMap.set(`${e.placa}|${e.inicio}|${e.fim}`, e.id));                  
+        const { error } = await supabaseClient.from('viagens').upsert(batch, { onConflict: 'placa,inicio', ignoreDuplicates: true });             
         
-        for (const v of batch) {             
-            const key = `${v.placa}|${v.inicio}|${v.fim}`;             
-            const record = {                 
-                placa: v.placa, motorista: v.motorista, inicio: v.inicio, fim: v.fim,                 
-                local_inicial: v.local_inicial, local_final: v.local_final,                 
-                distancia_km: v.distancia_km, km_l: v.km_l,                 
-                tempo_conducao: `${v.tempo_conducao_seconds} seconds`,                 
-                tempo_parado: `${v.tempo_parado_seconds} seconds`,                 
-                updated_at: new Date().toISOString()             
-            };             
-            if (existingMap.has(key)) {                 
-                toUpdate.push({ id: existingMap.get(key), ...record });             
-            } else {                 
-                record.created_at = new Date().toISOString();                 
-                toInsert.push(record);             
-            }         
-        }                  
-        
-        // Executa inserções e atualizações         
-        if (toInsert.length) {             
-            const { error } = await supabaseClient.from('viagens').insert(toInsert);             
-            if (error) errors += toInsert.length;             
-            else inserted += toInsert.length;         
-        }                  
-        
-        if (toUpdate.length) {             
-            for (const item of toUpdate) {                 
-                const { id, ...updateData } = item;                 
-                const { error } = await supabaseClient.from('viagens').update(updateData).eq('id', id);                 
-                if (error) errors++;                 
-                else updated++;             
-            }         
-        }                  
+        if (error) {
+            importStats.errors += batch.length;
+        } else {
+            importStats.inserted += batch.length;
+        }
         
         const progress = Math.round((i + batch.length) / viagens.length * 100);         
-        addToImportLog(`   Progresso: ${progress}% (${inserted} inseridas, ${updated} atualizadas)`, 'info');     
+        addToImportLog(`   Enviando p/ BD: ${progress}%...`, 'info');     
     }          
-    return { inserted, updated, errors }; 
+}
+
+// ==================== MÓDULO DE DELETE (ZONA DE PERIGO) ====================
+function initDeleteModule() {
+    const deleteBtn = document.getElementById('deleteAllBtn');
+    if (!deleteBtn) return;
+
+    deleteBtn.addEventListener('click', async () => {
+        const confirm1 = confirm('ATENÇÃO: Você está prestes a APAGAR TODAS AS VIAGENS do banco de dados. Essa ação não tem volta. Deseja continuar?');
+        if (!confirm1) return;
+
+        const confirm2 = prompt('Digite a palavra "APAGAR" em maiúsculo para confirmar a exclusão do banco:');
+        if (confirm2 === 'APAGAR') {
+            try {
+                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Apagando BD...';
+                deleteBtn.disabled = true;
+
+                // Comando para deletar tudo: Apaga onde placa não for nula (ou seja, todas as linhas)
+                const { error } = await supabaseClient
+                    .from('viagens')
+                    .delete()
+                    .not('placa', 'is', null);
+
+                if (error) throw error;
+
+                alert('Banco de dados limpo com sucesso! A página será recarregada.');
+                window.location.reload();
+
+            } catch (err) {
+                alert('Erro ao apagar banco de dados: ' + err.message);
+                deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Limpar Banco de Dados';
+                deleteBtn.disabled = false;
+            }
+        } else if (confirm2 !== null) {
+            alert('Palavra incorreta. O banco de dados foi preservado.');
+        }
+    });
 }
 
 function showImportStatus(type, message) {     
     const statusDiv = document.getElementById('importStatus');     
     if (!statusDiv) return;     
-    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };     
     const colors = { success: '#dcfce7', error: '#fee2e2', warning: '#fef3c7', info: '#e0f2fe' };     
     const textColors = { success: '#166534', error: '#991b1b', warning: '#92400e', info: '#075985' };     
-    statusDiv.className = `import-status ${type}`;     
     statusDiv.style.backgroundColor = colors[type];     
     statusDiv.style.color = textColors[type];     
-    statusDiv.innerHTML = `<i class="fas ${icons[type]}"></i><span>${message}</span>`;     
+    statusDiv.innerHTML = `<span style="font-weight:600;">${message}</span>`;     
     statusDiv.style.display = 'block';     
-    if (type === 'success') setTimeout(() => { if (statusDiv) statusDiv.style.display = 'none'; }, 5000); 
 }
 
 function clearImportLog() { 
@@ -572,24 +601,22 @@ function addToImportLog(message, type = 'info') {
     const logDiv = document.getElementById('importLog');     
     if (!logDiv) return;     
     const timestamp = new Date().toLocaleTimeString('pt-BR');     
-    const icons = { success: '🟢', error: '🔴', warning: '🟡', info: '🔵' };     
-    const colors = { success: '#a5f3fc', error: '#fecaca', warning: '#fde68a', info: '#a5f3fc' };     
+    const colors = { success: '#a5f3fc', error: '#fecaca', warning: '#fde68a', info: '#e2e8f0' };     
     const entry = document.createElement('div');     
-    entry.style.cssText = 'margin-bottom: 8px; font-family: monospace; font-size: 0.8rem;';     
+    entry.style.cssText = 'margin-bottom: 4px; font-family: monospace; font-size: 0.8rem;';     
     entry.style.color = colors[type];     
-    entry.innerHTML = `<span style="color: #64748b;">[${timestamp}]</span> ${icons[type]} ${message}`;     
+    entry.innerHTML = `<span style="color: #64748b;">[${timestamp}]</span> ${message}`;     
     logDiv.appendChild(entry);     
     logDiv.scrollTop = logDiv.scrollHeight;     
-    while (logDiv.children.length > 200) logDiv.removeChild(logDiv.firstChild); 
 }
 
 function showEmptyDashboard() {     
     document.querySelectorAll('.stat-card p').forEach(p => p.innerHTML = '--');     
     const tbody = document.getElementById('alertsTableBody');     
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Nenhum dado. Importe o CSV na aba de Configurações.</td></tr>'; 
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4">O banco de dados está limpo. Realize uma importação.</td></tr>'; 
 }
 
 function showDashboardError() {     
     const tbody = document.getElementById('alertsTableBody');     
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Erro ao carregar dados. Verifique a conexão com o Supabase.</td></tr>'; 
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4">Erro de conexão com a nuvem.</td></tr>'; 
 }
