@@ -1,19 +1,20 @@
-// ==================== CÉREBRO DA APLICAÇÃO (CÁLCULOS E INTEGRAÇÃO) ==================== 
-document.addEventListener('DOMContentLoaded', () => {     
-    if (!initSupabase()) { console.error('Erro de Supabase'); return; }     
+// ==================== CÉREBRO DA APLICAÇÃO (CÁLCULOS E INTEGRAÇÃO) ====================
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!initSupabase()) { console.error('Erro de Supabase'); return; }
     
-    initNavigation();     
-    initMenuToggle();     
-    initImportModule();   
-    initDeleteModule(); 
+    initNavigation();
+    initMenuToggle();
+    initImportModule();
+    initDeleteModule();
     initGlobalFilters();
     initSettingsModule();
     
     loadMetaFromDB().then(() => {
-        setTimeout(() => { 
+        setTimeout(() => {
             const btn = document.getElementById('applyFilterBtn');
-            if (btn) btn.click(); 
-        }, 500); 
+            if (btn) btn.click();
+        }, 500);
     });
 });
 
@@ -23,7 +24,6 @@ async function loadMetaFromDB() {
             .from('configuracoes')
             .select('chave, valor')
             .in('chave', ['meta_kml', 'meta_viagens_dia']);
-
         if (error) throw error;
         
         if (data && data.length > 0) {
@@ -52,11 +52,10 @@ function initSettingsModule() {
     btn.addEventListener('click', async () => {
         const valKml = parseFloat(document.getElementById('metaInput').value);
         const valViag = parseFloat(document.getElementById('metaViagensInput').value);
-
+        
         if(valKml > 0 && valViag > 0) {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
             btn.disabled = true;
-
             try {
                 const { error } = await supabaseClient
                     .from('configuracoes')
@@ -64,13 +63,12 @@ function initSettingsModule() {
                         { chave: 'meta_kml', valor: valKml.toString(), atualizado_em: new Date().toISOString() },
                         { chave: 'meta_viagens_dia', valor: valViag.toString(), atualizado_em: new Date().toISOString() }
                     ]);
-
                 if (error) throw error;
-
+                
                 currentMetaKML = valKml;
                 currentMetaViagens = valViag;
                 updateMetaTexts();
-                if(rawData.length > 0) processFilteredData(); 
+                if(rawData.length > 0) processFilteredData();
                 
                 alert(`Parâmetros salvos: KML=${valKml.toFixed(2)} | Viagens/Dia=${valViag.toFixed(1)}`);
             } catch (e) {
@@ -94,12 +92,12 @@ function initGlobalFilters() {
     const sep = document.getElementById('dateSeparator');
     const lbl = document.getElementById('dateInputsLabel');
     const applyBtn = document.getElementById('applyFilterBtn');
-
+    
     if(dateFilter) {
         dateFilter.addEventListener('change', () => {
             const val = dateFilter.value;
             const todayISO = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
-
+            
             if (val === 'custom') {
                 dateInputsGroup.style.display = 'flex';
                 customDateInput.style.display = 'block';
@@ -120,12 +118,13 @@ function initGlobalFilters() {
             }
         });
     }
-
+    
     const filterPlaca = document.getElementById('filterPlaca');
     const filterMot = document.getElementById('filterMotorista');
+    
     if(filterPlaca) filterPlaca.addEventListener('change', processFilteredData);
     if(filterMot) filterMot.addEventListener('change', processFilteredData);
-
+    
     if (applyBtn) {
         applyBtn.addEventListener('click', () => {
             applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
@@ -145,7 +144,7 @@ function getDateBoundaries() {
     let end = new Date();
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
-
+    
     if (val === 'custom' && startInput) {
         const parts = startInput.split('-');
         start = new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0);
@@ -165,14 +164,14 @@ function getDateBoundaries() {
             case 'd-2': start.setDate(start.getDate() - 2); break;
             case 'd-7': start.setDate(start.getDate() - 7); break;
             case 'd-30': start.setDate(start.getDate() - 30); break;
-            case 'week': start.setDate(start.getDate() - start.getDay()); break; 
-            case 'month': start.setDate(1); break; 
+            case 'week': start.setDate(start.getDate() - start.getDay()); break;
+            case 'month': start.setDate(1); break;
         }
     }
-
+    
     const pad = (n) => String(n).padStart(2, '0');
     const format = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
+    
     return { startStr: format(start), endStr: format(end) };
 }
 
@@ -193,7 +192,7 @@ async function loadCoreData() {
         rawData = data || [];
         
         if (rawData.length === 0) { showEmptyDashboard(); return; }
-
+        
         populateEntityDropdowns();
         processFilteredData();
         
@@ -208,7 +207,7 @@ function populateEntityDropdowns() {
     const placSelect = document.getElementById('filterPlaca');
     
     if (!motSelect || !placSelect) return;
-
+    
     const currentMot = motSelect.value;
     const currentPlac = placSelect.value;
     
@@ -228,49 +227,49 @@ function processFilteredData() {
     
     const selPlac = selPlacObj ? selPlacObj.value : 'all';
     const selMot = selMotObj ? selMotObj.value : 'all';
-
+    
     let filtered = rawData;
     
     if (selPlac !== 'all') filtered = filtered.filter(v => v.placa === selPlac);
     if (selMot !== 'all') filtered = filtered.filter(v => v.motorista === selMot);
-
+    
     if (filtered.length === 0) { showEmptyDashboard(); return; }
-
+    
     calculateMetrics(filtered);
     renderDashboardCharts(filtered);
     renderTables(filtered);
     renderEvolutionChartLogic(filtered, selMot, selPlac);
 }
 
-function calculateMetrics(viagens) {     
-    let globalDist = 0; let globalLitros = 0;          
-    const driverMap = new Map();     
+function calculateMetrics(viagens) {
+    let globalDist = 0; let globalLitros = 0;
+    const driverMap = new Map();
     const truckMap = new Map();
-
+    
     viagens.forEach(v => {
         if (v.distancia_km && v.distancia_km > 0 && v.km_l && v.km_l > 0) {
             const dist = parseFloat(v.distancia_km);
-            const litros = dist / parseFloat(v.km_l); 
+            const litros = dist / parseFloat(v.km_l);
             
             globalDist += dist;
             globalLitros += litros;
-
+            
             const dName = v.motorista || 'Indefinido';
             if (!driverMap.has(dName)) driverMap.set(dName, { dist: 0, litros: 0, trips: 0 });
-            driverMap.get(dName).dist += dist; 
+            driverMap.get(dName).dist += dist;
             driverMap.get(dName).litros += litros;
             driverMap.get(dName).trips += 1;
-
+            
             const tPlate = v.placa || 'Indefinido';
             if (!truckMap.has(tPlate)) truckMap.set(tPlate, { dist: 0, litros: 0 });
-            truckMap.get(tPlate).dist += dist; 
+            truckMap.get(tPlate).dist += dist;
             truckMap.get(tPlate).litros += litros;
         }
     });
-
+    
     dashboardData.totalDist = globalDist;
     dashboardData.totalFuel = globalLitros;
-    dashboardData.avgConsumption = globalLitros > 0 ? (globalDist / globalLitros) : 0;          
+    dashboardData.avgConsumption = globalLitros > 0 ? (globalDist / globalLitros) : 0;
     
     dashboardData.drivers = Array.from(driverMap.entries())
         .map(([name, data]) => ({ name, dist: data.dist, realKML: data.litros > 0 ? data.dist / data.litros : 0, trips: data.trips }))
@@ -279,28 +278,62 @@ function calculateMetrics(viagens) {
     dashboardData.criticalDrivers = dashboardData.drivers
         .filter(d => d.realKML > 0 && d.realKML < currentMetaKML && d.dist > 10)
         .sort((a, b) => a.realKML - b.realKML);
-
+        
     dashboardData.trucks = Array.from(truckMap.entries())
         .map(([plate, data]) => ({ plate, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
         .sort((a, b) => b.realKML - a.realKML);
-    
+        
     const start = new Date(viagens[0].inicio);
     const end = new Date(viagens[viagens.length - 1].inicio);
-    const daysDiff = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));     
+    const daysDiff = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
     
-    const truckTrips = new Map();     
-    viagens.forEach(v => { const p = v.placa || 'Indefinido'; truckTrips.set(p, (truckTrips.get(p) || 0) + 1); });     
+    const truckTrips = new Map();
+    viagens.forEach(v => { const p = v.placa || 'Indefinido'; truckTrips.set(p, (truckTrips.get(p) || 0) + 1); });
     
-    let sumTrips = 0; let active = 0; dashboardData.alerts = [];     
+    let sumTrips = 0; let active = 0; 
     
-    dashboardData.trucks.forEach(t => { 
+    // ======== NOVA LÓGICA DE ALERTAS E CRITICIDADE ========
+    dashboardData.alerts = [];
+    
+    dashboardData.trucks.forEach(t => {
         const avg = (truckTrips.get(t.plate) || 0) / daysDiff;
-        sumTrips += avg; active++;
-
-        if (t.realKML < currentMetaKML && t.realKML > 0) dashboardData.alerts.push({ placa: t.plate, trips: avg.toFixed(1), issue: 'Alto Consumo' });
-        else if (avg < currentMetaViagens) dashboardData.alerts.push({ placa: t.plate, trips: avg.toFixed(1), issue: 'Baixa Rodagem' });
-    });          
-
+        sumTrips += avg; 
+        active++;
+        
+        let issue = 'OK';
+        let pesoCritico = 0;
+        
+        const isBaixoKml = t.realKML < currentMetaKML && t.realKML > 0;
+        const isBaixaRodagem = avg < currentMetaViagens;
+        
+        if (isBaixoKml && isBaixaRodagem) {
+            issue = 'Crítico (Consumo e Rodagem)';
+            pesoCritico = 3;
+        } else if (isBaixoKml) {
+            issue = 'Alto Consumo';
+            pesoCritico = 2;
+        } else if (isBaixaRodagem) {
+            issue = 'Baixa Rodagem';
+            pesoCritico = 1;
+        }
+        
+        dashboardData.alerts.push({ 
+            placa: t.plate, 
+            trips: avg, 
+            kml: t.realKML,
+            issue: issue,
+            peso: pesoCritico
+        });
+    });
+    
+    // Ordenar do mais crítico para o menos crítico
+    dashboardData.alerts.sort((a, b) => {
+        if (b.peso !== a.peso) return b.peso - a.peso; // Primeiro critério: Maior peso = pior
+        if (a.kml !== b.kml) return a.kml - b.kml;     // Segundo critério: Menor KM/L = pior
+        return a.trips - b.trips;                      // Terceiro critério: Menor qtd de viagens = pior
+    });
+    // =======================================================
+    
     dashboardData.avgTripsPerDay = active > 0 ? (sumTrips / active) : 0;
-    updateStatsCards(); 
+    updateStatsCards();
 }

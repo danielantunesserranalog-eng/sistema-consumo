@@ -53,10 +53,8 @@
                         <i class="fas fa-user-circle"></i>
                     </div>
                 </div>
-
                 <!-- FILTROS CRUZADOS GLOBAIS NO TOPO -->
                 <div class="global-filters" id="globalFilters">
-                    
                     <div class="filter-group">
                         <label><i class="far fa-calendar-alt"></i> Período</label>
                         <select id="dateFilter">
@@ -71,30 +69,26 @@
                             <option value="range">Entre Datas</option>
                         </select>
                     </div>
-
                     <div class="filter-group" id="dateInputsGroup" style="display: none; flex: none;">
                         <label id="dateInputsLabel">Selecione a Data</label>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="date" id="startDateInput" class="filter-input">
-                            <span id="dateSeparator" style="color: #94a3b8; font-weight: bold; display: none;">até</span>
+                            <span id="dateSeparator" style="color: #94a3b8; font-weight: bold; display: none;">até </span>
                             <input type="date" id="endDateInput" class="filter-input" style="display: none;">
                         </div>
                     </div>
-
                     <div class="filter-group">
                         <label><i class="fas fa-truck"></i> Frota (Equipamento)</label>
                         <select id="filterPlaca">
                             <option value="all">Toda a Frota</option>
                         </select>
                     </div>
-
                     <div class="filter-group">
                         <label><i class="fas fa-user"></i> Motorista</label>
                         <select id="filterMotorista">
                             <option value="all">Todos os Motoristas</option>
                         </select>
                     </div>
-
                     <button id="applyFilterBtn" class="btn-primary" title="Busca os dados no banco"><i class="fas fa-cloud-download-alt"></i> Buscar Dados</button>
                 </div>
             </header>
@@ -153,7 +147,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="charts-row">
                         <div class="chart-card full-width">
                             <h3><i class="fas fa-stopwatch"></i> Eficiência de Motor (Condução vs Ocioso)</h3>
@@ -174,7 +167,6 @@
                                         <span>Produtividade</span>
                                     </div>
                                 </div>
-
                                 <div class="efficiency-stats">
                                     <div class="stat-box">
                                         <span class="stat-label"><div class="dot parado"></div>Tempo Parado</span>
@@ -185,7 +177,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="tables-row">
                         <div class="table-card full-width">
                             <h3><i class="fas fa-trophy" style="color: #fbbf24;"></i> Ranking Geral de Motoristas (KML Ponderado)</h3>
@@ -211,7 +202,7 @@
                     
                     <div class="tables-row">
                         <div class="table-card danger-table">
-                            <h3 id="criticalDriversTitle"><i class="fas fa-user-times"></i> Motoristas Críticos (< 1.80 KM/L)</h3>
+                            <h3 id="criticalDriversTitle"><i class="fas fa-user-times"></i> Motoristas Críticos (&lt; 1.80 KM/L)</h3>
                             <div class="table-wrapper">
                                 <table id="driversTable">
                                     <thead>
@@ -226,13 +217,18 @@
                         
                         <div class="table-card warning-table">
                             <h3><i class="fas fa-exclamation-circle"></i> Alertas de Frota</h3>
-                            <div class="table-wrapper">
+                            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
                                 <table id="alertsTable">
-                                    <thead>
-                                        <tr><th>Placa</th><th>Viagens/Dia</th><th>Alerta</th></tr>
+                                    <thead style="position: sticky; top: 0; z-index: 10;">
+                                        <tr>
+                                            <th>Placa</th>
+                                            <th>Viagens/Dia</th>
+                                            <th>KM/L Real</th>
+                                            <th>Alerta</th>
+                                        </tr>
                                     </thead>
                                     <tbody id="alertsTableBody">
-                                        <tr><td colspan="3" class="text-center">Aguardando dados...</td></tr>
+                                        <tr><td colspan="4" class="text-center">Aguardando dados...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -249,7 +245,6 @@
                             <canvas id="evolutionChart"></canvas>
                         </div>
                     </div>
-
                     <div class="table-card full-width">
                         <h3><i class="fas fa-route"></i> Registro Diário de Viagens (Período Selecionado)</h3>
                         <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
@@ -290,7 +285,6 @@
                             <button id="saveMetaBtn" class="btn-primary"><i class="fas fa-save"></i> Salvar Parâmetros</button>
                         </div>
                     </div>
-
                     <div class="config-card">
                         <h2><i class="fas fa-database"></i> Motor de Importação Inteligente</h2>
                         <p>Envie relatórios CSV. O sistema limpará duplicatas, consolidará as viagens e ignorará viagens curtas de manobra.</p>
@@ -303,7 +297,6 @@
                         </div>
                         <div id="importStatus" class="import-status" style="display: none;"></div>
                         <div id="importLog" class="import-log"></div>
-
                         <div class="danger-zone">
                             <h3><i class="fas fa-skull-crossbones"></i> Danger Zone (Reset Geral)</h3>
                             <p>Cuidado: Esta ação apaga o banco de dados inteiro na nuvem. Use apenas para virada de mês limpa ou correção severa de dados.</p>
