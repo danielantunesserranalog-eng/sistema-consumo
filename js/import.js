@@ -1,4 +1,4 @@
-// ==================== MOTOR DE IMPORTAÇÃO E AGRUPAMENTO ==================== 
+// ==================== MOTOR DE IMPORTAÇÃO (COSTURA DE VIAGENS) ==================== 
 
 function initImportModule() {     
     const uploadArea = document.getElementById('uploadArea');     
@@ -53,7 +53,7 @@ async function processFiles(files) {
     }          
     
     isImporting = false;     
-    const summary = `Concluído! Trechos lidos: ${importStats.total_linhas_lidas} | Viagens Salvas: ${importStats.viagens_consolidadas_salvas} <br> <small style="color:#94a3b8">Descartes: ${importStats.trechos_sem_motorista} sem motorista | ${importStats.placas_ignoradas} apoio | ${importStats.viagens_curtas} curtas (<10km)</small>`;     
+    const summary = `Concluído! Trechos lidos: ${importStats.total_linhas_lidas} | Viagens Úteis Salvas: ${importStats.viagens_consolidadas_salvas} <br> <small style="color:#94a3b8">Descartes: ${importStats.trechos_sem_motorista} sem motorista | ${importStats.placas_ignoradas} placas apoio | ${importStats.viagens_curtas} rotas curtas (<10km)</small>`;     
     showImportStatus('success', summary);          
     
     if (importStats.viagens_consolidadas_salvas > 0) {         
@@ -135,7 +135,7 @@ function mapRawSegment(row) {
 }
 
 function consolidateTrips(rawSegments) {
-    addToImportLog(`Agrupando e somando trechos de GPS...`, 'info');
+    addToImportLog(`Costurando trechos fracionados...`, 'info');
     
     rawSegments.sort((a, b) => {
         if (a.placa !== b.placa) return a.placa.localeCompare(b.placa);
@@ -211,7 +211,7 @@ async function batchInsertSupabase(viagensParaInserir) {
         addToImportLog(`Todas as viagens calculadas já existem no sistema.`, 'warning'); return;
     }
 
-    addToImportLog(`Transmitindo ${viagensLimpas.length} viagens ao BD...`, 'info');
+    addToImportLog(`Transmitindo ${viagensLimpas.length} viagens...`, 'info');
     const batchSize = 300; 
     
     for (let i = 0; i < viagensLimpas.length; i += batchSize) {         

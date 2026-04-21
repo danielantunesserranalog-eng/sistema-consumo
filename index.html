@@ -34,27 +34,28 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <p>Versão 3.5 Dark Pro</p>
+                <p>Versão 4.0 Dark Modular</p>
             </div>
         </aside>
         
         <!-- Main Content -->
         <main class="main-content">
-            <header class="top-bar">
-                <div class="header-left">
-                    <div class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></div>
-                    <h1 id="pageTitle">Visão Geral da Frota</h1>
-                </div>
-                <div class="user-info">
-                    <div class="status-indicator"></div>
-                    <span>Serrana Florestal</span>
-                    <i class="fas fa-user-circle"></i>
-                </div>
-            </header>
             
-            <div class="content-area" id="contentArea">
-                
-                <!-- GLOBAL FILTERS -->
+            <!-- TOP BAR UNIFICADA (Header + Filtros Globais) -->
+            <header class="top-bar">
+                <div class="header-content">
+                    <div class="header-left">
+                        <div class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></div>
+                        <h1 id="pageTitle">Visão Geral da Frota</h1>
+                    </div>
+                    <div class="user-info">
+                        <div class="status-indicator"></div>
+                        <span>Serrana Florestal</span>
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                </div>
+
+                <!-- FILTROS FIXADOS NO MENU SUPERIOR -->
                 <div class="global-filters" id="globalFilters">
                     <div class="filter-group" style="flex: 1.5;">
                         <label><i class="far fa-calendar-alt"></i> Período de Análise</label>
@@ -86,9 +87,12 @@
                             <option value="">Aguardando...</option>
                         </select>
                     </div>
-                    <button id="applyFilterBtn" class="btn-primary"><i class="fas fa-sync-alt"></i> Atualizar Dados</button>
+                    <button id="applyFilterBtn" class="btn-primary"><i class="fas fa-sync-alt"></i> Filtrar</button>
                 </div>
-
+            </header>
+            
+            <div class="content-area" id="contentArea">
+                
                 <!-- Dashboard Page -->
                 <div id="dashboardPage" class="page active">
                     <div class="stats-grid">
@@ -138,13 +142,11 @@
                         </div>
                     </div>
 
-                    <!-- NOVO LAYOUT: EFICIÊNCIA DE MOTOR -->
                     <div class="charts-row">
                         <div class="chart-card full-width">
                             <h3><i class="fas fa-stopwatch"></i> Eficiência de Motor (Condução vs Ocioso)</h3>
                             
                             <div class="efficiency-layout">
-                                <!-- Lado Esquerdo: Condução -->
                                 <div class="efficiency-stats">
                                     <div class="stat-box">
                                         <span class="stat-label"><div class="dot conducao"></div>Tempo de Condução</span>
@@ -153,7 +155,6 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Centro: Gráfico -->
                                 <div class="chart-container efficiency-chart">
                                     <canvas id="timeDistributionChart"></canvas>
                                     <div class="chart-center-overlay">
@@ -162,7 +163,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Lado Direito: Ocioso -->
                                 <div class="efficiency-stats">
                                     <div class="stat-box">
                                         <span class="stat-label"><div class="dot parado"></div>Tempo Parado</span>
@@ -171,11 +171,9 @@
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
 
-                    <!-- RANKING GERAL DE MOTORISTAS -->
                     <div class="tables-row">
                         <div class="table-card full-width">
                             <h3><i class="fas fa-trophy" style="color: #fbbf24;"></i> Ranking Geral de Motoristas (Do Maior para o Menor KM/L)</h3>
@@ -234,7 +232,7 @@
                 <div id="consumo-evolutionPage" class="page">
                     <div class="chart-card full-width" style="margin-bottom: 24px;">
                         <h3><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
-                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Esta visão obedece aos filtros globais de período e entidade (Motorista/Placa) selecionados no topo.</p>
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Esta visão obedece aos filtros globais de período e entidade (Motorista/Placa) selecionados no menu superior.</p>
                         <div class="chart-container" style="height: 350px;">
                             <canvas id="evolutionChart"></canvas>
                         </div>

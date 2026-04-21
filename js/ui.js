@@ -23,8 +23,6 @@ function initNavigation() {
             const pageNames = { 'dashboard': 'Visão Geral da Frota', 'consumo-evolution': 'Histórico Detalhado', 'configuracoes': 'Gerenciamento de Dados' };             
             if (pageTitle) pageTitle.textContent = pageNames[pageId] || 'CCOL_SISTEMA';             
             currentPage = pageId;             
-            
-            document.getElementById('globalFilters').style.display = (pageId === 'configuracoes') ? 'none' : 'flex';
         });     
     }); 
 }
@@ -140,12 +138,9 @@ function parseInterval(i) {
     if (!i) return 0;     
     if (typeof i === 'number') return i;
     if (typeof i === 'string') {         
-        // Trata os casos puros salvos como "1200 seconds" no banco
         if (i.includes('second')) return parseInt(i.replace(/\D/g, '')) || 0;
-        
         const match = i.match(/(\d+):(\d+):(\d+)/);         
         if (match) return parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);         
-        
         let sec = 0;         
         const h = i.match(/(\d+)\s*h/i); const m = i.match(/(\d+)\s*m/i); const s = i.match(/(\d+)\s*s/i);         
         if (h) sec += parseInt(h[1]) * 3600; if (m) sec += parseInt(m[1]) * 60; if (s) sec += parseInt(s[1]);         
@@ -174,7 +169,6 @@ function renderDashboardCharts(viagens) {
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(51,65,85,0.3)' } }, x: { grid: { display: false } } } } 
     }); 
 
-    // ===== LÓGICA DE EFICIÊNCIA =====
     if (timeChart) timeChart.destroy();     
     
     let conducaoSec = 0, paradoSec = 0;
@@ -191,31 +185,21 @@ function renderDashboardCharts(viagens) {
     const hrsParado = (paradoSec / 3600);
     const percEficiencia = ((hrsConducao / (hrsConducao + hrsParado)) * 100).toFixed(1);
 
-    // Injeta os dados nos quadros de estatísticas
     document.getElementById('totConducao').innerText = `${hrsConducao.toFixed(1)}h`;
-    document.getElementById('medConducao').innerText = `Média: ${(hrsConducao / viagensCount).toFixed(1)}h / viagem`;
+    document.getElementById('medConducao').innerText = `Média: ${(hrsConducao / viagensCount).toFixed(1)}h / viag`;
     
     document.getElementById('totParado').innerText = `${hrsParado.toFixed(1)}h`;
-    document.getElementById('medParado').innerText = `Média: ${(hrsParado / viagensCount).toFixed(1)}h / viagem`;
+    document.getElementById('medParado').innerText = `Média: ${(hrsParado / viagensCount).toFixed(1)}h / viag`;
     
     document.getElementById('centerEficiencia').innerText = `${percEficiencia}%`;
 
-    // Desenha o Gráfico Limpo
     timeChart = new Chart(document.getElementById('timeDistributionChart').getContext('2d'), { 
         type: 'doughnut', 
         data: { 
             labels: ['Tempo Condução', 'Tempo Parado'], 
             datasets: [{ data: [conducaoSec, paradoSec], backgroundColor: ['#3b82f6', '#f59e0b'], borderWidth: 0, hoverOffset: 4 }] 
         }, 
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            cutout: '80%', 
-            plugins: { 
-                legend: { display: false }, // Oculta legenda antiga
-                tooltip: { callbacks: { label: (c) => ` ${(c.raw / 3600).toFixed(1)}h` } } 
-            } 
-        } 
+        options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${(c.raw / 3600).toFixed(1)}h` } } } } 
     });     
 }
 
@@ -266,11 +250,11 @@ function showEmptyDashboard() {
         if (e) e.innerHTML = `<tr><td colspan="${cols}" class="text-center text-warning">Sem dados para este período.</td></tr>`;
     });
     
-    document.getElementById('totConducao').innerText = `--h`;
-    document.getElementById('medConducao').innerText = `Média: --h / viagem`;
-    document.getElementById('totParado').innerText = `--h`;
-    document.getElementById('medParado').innerText = `Média: --h / viagem`;
-    document.getElementById('centerEficiencia').innerText = `--%`;
+    const ids = ['totConducao', 'totParado'];
+    ids.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = '--h'; });
+    const meds = ['medConducao', 'medParado'];
+    meds.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = 'Média: --h / viag'; });
+    if(document.getElementById('centerEficiencia')) document.getElementById('centerEficiencia').innerText = '--%';
 
     if (driverChart) driverChart.destroy();
     if (truckChart) truckChart.destroy();

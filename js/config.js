@@ -4,7 +4,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null; 
 
 // ==================== ESTADO GLOBAL DA APLICAÇÃO ==================== 
-let currentMetaKML = 1.80; // Padrão, será atualizado via Banco de Dados
+let currentMetaKML = 1.80; 
 const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008']; 
 
 let rawData = []; 
@@ -24,7 +24,7 @@ let importStats = {
     viagens_curtas: 0, viagens_consolidadas_salvas: 0, erros: 0 
 }; 
 
-// Função que inicia o Banco de Dados
+// Inicializa a conexão
 function initSupabase() {     
     if (!supabaseClient && window.supabase) {         
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);         
