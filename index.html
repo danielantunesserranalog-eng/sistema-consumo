@@ -51,6 +51,8 @@
             <div class="content-area" id="contentArea">
                 <!-- Dashboard Page -->
                 <div id="dashboardPage" class="page active">
+                    
+                    <!-- Top KPI Cards -->
                     <div class="stats-grid">
                         <div class="stat-card highlight-card">
                             <div class="stat-icon"><i class="fas fa-gas-pump"></i></div>
@@ -84,34 +86,60 @@
                         </div>
                     </div>
                     
+                    <!-- Charts Row 1 -->
                     <div class="charts-row">
                         <div class="chart-card">
                             <h3>Consumo Real por Motorista (Top 10)</h3>
-                            <canvas id="driverConsumptionChart" width="400" height="250"></canvas>
+                            <div class="chart-container">
+                                <canvas id="driverConsumptionChart"></canvas>
+                            </div>
                         </div>
                         <div class="chart-card">
                             <h3>Consumo Real por Caminhão (Top 10)</h3>
-                            <canvas id="truckConsumptionChart" width="400" height="250"></canvas>
+                            <div class="chart-container">
+                                <canvas id="truckConsumptionChart"></canvas>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Charts Row 2 -->
                     <div class="charts-row">
                         <div class="chart-card full-width">
                             <h3>Tempo de Campo vs Fábrica (Horas)</h3>
-                            <canvas id="timeDistributionChart" width="400" height="200"></canvas>
+                            <div class="chart-container">
+                                <canvas id="timeDistributionChart"></canvas>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="data-table-container">
-                        <h3>Alertas Operacionais</h3>
-                        <div class="table-wrapper">
-                            <table id="alertsTable">
-                                <thead>
-                                    <tr><th>Equipamento</th><th>Consumo Real (KM/L)</th><th>Viagens/24h</th><th>Status da Máquina</th></tr>
-                                </thead>
-                                <tbody id="alertsTableBody">
-                                    <tr><td colspan="4">Carregando dados...</td></tr>
-                                </tbody>
-                            </table>
+                    <!-- Tables Row (Modern View) -->
+                    <div class="tables-row">
+                        <div class="table-card danger-table">
+                            <h3><i class="fas fa-user-times"></i> Motoristas Críticos (Alto Consumo)</h3>
+                            <div class="table-wrapper">
+                                <table id="driversTable">
+                                    <thead>
+                                        <tr><th>Motorista</th><th>Consumo Real</th><th>Distância</th></tr>
+                                    </thead>
+                                    <tbody id="driversTableBody">
+                                        <tr><td colspan="3">Carregando...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="table-card warning-table">
+                            <h3><i class="fas fa-exclamation-circle"></i> Alertas de Frota (Equipamentos)</h3>
+                            <div class="table-wrapper">
+                                <table id="alertsTable">
+                                    <thead>
+                                        <tr><th>Equipamento</th><th>Viagens/24h</th><th>Status</th></tr>
+                                    </thead>
+                                    <tbody id="alertsTableBody">
+                                        <tr><td colspan="3">Carregando...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -134,7 +162,9 @@
                         </div>
                     </div>
                     <div class="chart-card full-width">
-                        <canvas id="evolutionChart" width="800" height="350"></canvas>
+                        <div class="chart-container" style="height: 400px;">
+                            <canvas id="evolutionChart"></canvas>
+                        </div>
                     </div>
                 </div>
                 
@@ -142,7 +172,7 @@
                 <div id="configuracoesPage" class="page">
                     <div class="config-card">
                         <h2><i class="fas fa-file-csv"></i> Painel de Importação</h2>
-                        <p>Arraste os relatórios de viagem do rastreador. O sistema irá compilar os dados, ignorando automaticamente placas de apoio.</p>
+                        <p>Arraste os relatórios de viagem do rastreador. O sistema irá compilar os dados, ignorando automaticamente placas de apoio (GSR0001, GSR0002, etc).</p>
                         
                         <div class="upload-area" id="uploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
@@ -155,7 +185,7 @@
 
                         <div class="danger-zone">
                             <h3><i class="fas fa-exclamation-triangle"></i> Zona de Perigo</h3>
-                            <p>Utilize esta função apenas se precisar resetar o painel para iniciar um novo mês ou corrigir dados corrompidos. Isso apagará todas as viagens do banco de dados.</p>
+                            <p>Utilize esta função para resetar o painel para iniciar um novo mês ou corrigir dados corrompidos. Isso apagará todas as viagens do banco de dados.</p>
                             <button id="deleteAllBtn" class="btn-danger"><i class="fas fa-trash-alt"></i> Limpar Banco de Dados</button>
                         </div>
                     </div>

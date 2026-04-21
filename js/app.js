@@ -1,18 +1,18 @@
 // ==================== CONFIGURAÇÃO DO SUPABASE ==================== 
+// ==================== CONFIGURAÇÃO DO SUPABASE ==================== 
 const SUPABASE_URL = 'https://qhbenzrxajbeaatwxtlj.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoYmVuenJ4YWpiZWFhdHd4dGxqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MzQ2OTksImV4cCI6MjA5MjMxMDY5OX0.2ddgnsjmxqmX9xk68m9duUmzAO2n2OAvEpOgHevRwkU'; 
-let supabaseClient = null; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoYmVuenJ4YWpiZWFhdHd4dGxqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MzQ2OTksImV4cCI6MjA5MjMxMDY5OX0.2ddgnsjmxqmX9xk68m9duUmzAO2n2OAvEpOgHevRwkU';let supabaseClient = null; 
 let isImporting = false; 
-let importStats = { total: 0, inserted: 0, updated: 0, errors: 0 }; 
+let importStats = { total: 0, inserted: 0, excluded: 0, errors: 0 }; 
 let evolutionDataCache = new Map(); 
 
 // Variáveis de Interface 
 let driverChart = null, truckChart = null, timeChart = null, evolutionChart = null; 
 let currentPage = 'dashboard'; 
-let dashboardData = { avgConsumption: 0, totalDist: 0, totalFuel: 0, avgTripsPerDay: 0, drivers: [], trucks: [], alerts: [] }; 
+let dashboardData = { avgConsumption: 0, totalDist: 0, totalFuel: 0, avgTripsPerDay: 0, drivers: [], trucks: [], alerts: [], criticalDrivers: [] }; 
 
-// Lista Negra de Placas de Apoio (Não entrarão no sistema)
-const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008'];
+// Lista Negra de Placas de Apoio
+const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008']; 
 
 // ==================== INICIALIZAÇÃO ==================== 
 function initSupabase() {     
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();     
     initMenuToggle();     
     initImportModule();   
-    initDeleteModule(); // Inicializa o botão de apagar tudo  
+    initDeleteModule(); 
     loadDashboardData(); 
 });
 
@@ -68,7 +68,6 @@ async function loadDashboardData() {
         const thirtyDaysAgo = new Date();         
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);                  
         
-        // Puxa as informações essenciais. Precisamos de distância para calcular o KML Real Ponderado.
         const { data: viagens, error } = await supabaseClient             
             .from('viagens')             
             .select('placa, motorista, km_l, distancia_km, inicio, tempo_conducao, tempo_parado, local_inicial, local_final')             
@@ -79,57 +78,54 @@ async function loadDashboardData() {
         
         calculateMetrics(viagens);         
         renderDashboardCharts();         
-        renderAlertsTable();     
+        renderTables();     
     } catch (error) { 
         console.error('Erro:', error); showDashboardError(); 
     } 
 }
 
 function calculateMetrics(viagens) {     
-    let globalDist = 0;
-    let globalLitros = 0;
-    
+    let globalDist = 0; let globalLitros = 0;          
     const driverMap = new Map();     
     const truckMap = new Map();
 
     viagens.forEach(v => {
-        // Usa apenas viagens que tenham registro válido de KM e consumo
         if (v.distancia_km && v.distancia_km > 0 && v.km_l && v.km_l > 0) {
             const dist = parseFloat(v.distancia_km);
-            const litros = dist / parseFloat(v.km_l); // Descobre quantos litros a viagem consumiu
+            const litros = dist / parseFloat(v.km_l); 
             
             globalDist += dist;
             globalLitros += litros;
 
-            // Agrupa por Motorista
             const driverName = v.motorista || 'Não informado';
             if (!driverMap.has(driverName)) driverMap.set(driverName, { dist: 0, litros: 0 });
-            const d = driverMap.get(driverName);
-            d.dist += dist; d.litros += litros;
+            driverMap.get(driverName).dist += dist; 
+            driverMap.get(driverName).litros += litros;
 
-            // Agrupa por Caminhão
             const plate = v.placa || 'Desconhecido';
             if (!truckMap.has(plate)) truckMap.set(plate, { dist: 0, litros: 0 });
-            const t = truckMap.get(plate);
-            t.dist += dist; t.litros += litros;
+            truckMap.get(plate).dist += dist; 
+            truckMap.get(plate).litros += litros;
         }
     });
 
-    // Calcula KML global ponderado
     dashboardData.totalDist = globalDist;
     dashboardData.totalFuel = globalLitros;
     dashboardData.avgConsumption = globalLitros > 0 ? (globalDist / globalLitros) : 0;          
     
-    // Arrays ordenados por melhor desempenho de motoristas e caminhões
     dashboardData.drivers = Array.from(driverMap.entries())
-        .map(([name, data]) => ({ name, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
+        .map(([name, data]) => ({ name, dist: data.dist, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
         .sort((a, b) => b.realKML - a.realKML);
         
+    // Separa os motoristas críticos (KM/L abaixo de 1.80 e que rodaram mais de 50km para evitar falsos positivos)
+    dashboardData.criticalDrivers = dashboardData.drivers
+        .filter(d => d.realKML > 0 && d.realKML < 1.80 && d.dist > 50)
+        .sort((a, b) => a.realKML - b.realKML); // Piores primeiro
+
     dashboardData.trucks = Array.from(truckMap.entries())
         .map(([plate, data]) => ({ plate, realKML: data.litros > 0 ? data.dist / data.litros : 0 }))
         .sort((a, b) => b.realKML - a.realKML);
     
-    // Cálculo de viagens por 24h
     const firstDate = new Date(viagens[viagens.length - 1]?.inicio);     
     const daysDiff = Math.max(1, Math.ceil((new Date() - firstDate) / (1000 * 60 * 60 * 24)));     
     
@@ -138,10 +134,8 @@ function calculateMetrics(viagens) {
     
     let sumDailyTrips = 0;
     let activeTrucks = 0;
-
     dashboardData.alerts = [];     
     
-    // Gera alertas combinando consumo ruim e baixa rodagem
     dashboardData.trucks.forEach(t => { 
         const tripsCount = truckTrips.get(t.plate) || 0;
         const avgTrips = tripsCount / daysDiff;
@@ -149,9 +143,9 @@ function calculateMetrics(viagens) {
         activeTrucks++;
 
         if (t.realKML < 1.80 && t.realKML > 0) {
-            dashboardData.alerts.push({ placa: t.plate, kml: t.realKML.toFixed(2), trips: avgTrips.toFixed(1), issue: 'consumo' });
+            dashboardData.alerts.push({ placa: t.plate, trips: avgTrips.toFixed(1), issue: 'Alto Consumo' });
         } else if (avgTrips < 2) {
-            dashboardData.alerts.push({ placa: t.plate, kml: t.realKML.toFixed(2), trips: avgTrips.toFixed(1), issue: 'produtividade' });
+            dashboardData.alerts.push({ placa: t.plate, trips: avgTrips.toFixed(1), issue: 'Baixa Rodagem' });
         }
     });          
 
@@ -174,29 +168,42 @@ function updateStatsCards() {
     el('avgTripsPerDay', `${dashboardData.avgTripsPerDay.toFixed(1)} viagens`); 
 }
 
-function renderAlertsTable() {     
-    const tbody = document.getElementById('alertsTableBody');     
-    if (!tbody) return;     
-    if (dashboardData.alerts.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="4">Operação saudável. Nenhum alerta pendente.</td></tr>'; 
-        return; 
-    }     
-    
-    // Ordena os piores primeiro
-    const sortedAlerts = dashboardData.alerts.sort((a, b) => parseFloat(a.kml) - parseFloat(b.kml));
+function renderTables() {     
+    // Tabela de Motoristas Críticos
+    const dBody = document.getElementById('driversTableBody');
+    if (dBody) {
+        if (dashboardData.criticalDrivers.length === 0) {
+            dBody.innerHTML = '<tr><td colspan="3">Nenhum motorista com consumo crítico.</td></tr>';
+        } else {
+            dBody.innerHTML = dashboardData.criticalDrivers.slice(0, 10).map(d => `
+                <tr>
+                    <td style="font-weight:600;">${d.name}</td>
+                    <td class="text-danger">${d.realKML.toFixed(2)} KM/L</td>
+                    <td>${Math.round(d.dist)} KM</td>
+                </tr>
+            `).join('');
+        }
+    }
 
-    tbody.innerHTML = sortedAlerts.slice(0, 20).map(a => {
-        let statusBadge = a.issue === 'consumo' ? '<span class="status-badge danger">Gasto Elevado</span>' : '<span class="status-badge warning">Baixa Rodagem</span>';
-        return `<tr>
-            <td style="font-weight: 600;">${a.placa}</td>
-            <td class="${parseFloat(a.kml) < 1.80 ? 'text-danger' : ''}">${a.kml} KM/L</td>
-            <td class="${parseFloat(a.trips) < 2 ? 'text-warning' : ''}">${a.trips}</td>
-            <td>${statusBadge}</td>
-        </tr>`;
-    }).join(''); 
+    // Tabela de Alertas de Frota
+    const aBody = document.getElementById('alertsTableBody');     
+    if (aBody) {
+        if (dashboardData.alerts.length === 0) { 
+            aBody.innerHTML = '<tr><td colspan="3">Nenhum alerta de frota pendente.</td></tr>'; 
+        } else {
+            aBody.innerHTML = dashboardData.alerts.slice(0, 10).map(a => {
+                let badgeClass = a.issue === 'Alto Consumo' ? 'danger' : 'warning';
+                return `<tr>
+                    <td style="font-weight: 600;">${a.placa}</td>
+                    <td class="${parseFloat(a.trips) < 2 ? 'text-warning' : ''}">${a.trips}</td>
+                    <td><span class="status-badge ${badgeClass}">${a.issue}</span></td>
+                </tr>`;
+            }).join(''); 
+        }
+    }
 }
 
-// ==================== GRÁFICOS (Renderização Top 10) ==================== 
+// ==================== GRÁFICOS (Renderização) ==================== 
 function renderDashboardCharts() { 
     renderDriverChart(); 
     renderTruckChart(); 
@@ -219,7 +226,7 @@ function renderDriverChart() {
                 borderRadius: 6 
             }] 
         }, 
-        options: { responsive: true, scales: { y: { beginAtZero: true } } } 
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } 
     }); 
 }
 
@@ -239,7 +246,7 @@ function renderTruckChart() {
                 borderRadius: 6 
             }] 
         }, 
-        options: { responsive: true, scales: { y: { beginAtZero: true } } } 
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } 
     }); 
 }
 
@@ -269,6 +276,7 @@ async function renderTimeDistributionChart() {
             }, 
             options: { 
                 responsive: true, 
+                maintainAspectRatio: false,
                 plugins: { 
                     tooltip: { 
                         callbacks: { 
@@ -307,12 +315,20 @@ async function loadEvolutionSelects() {
     const filterType = document.getElementById('filterType');     
     const filterValue = document.getElementById('filterValue');     
     if (!filterType || !filterValue) return;     
-    const type = filterType.value;     
+    
+    const type = filterType.value; // 'motorista' ou 'caminhao'
+    const column = type === 'motorista' ? 'motorista' : 'placa';
+
     try {         
-        const { data, error } = await supabaseClient.from('viagens').select(type === 'motorista' ? 'motorista' : 'placa').limit(2000);         
+        const { data, error } = await supabaseClient.from('viagens').select(column);         
         if (error) throw error;         
-        const unique = [...new Set(data.map(d => d[type === 'motorista' ? 'motorista' : 'placa']).filter(Boolean))];         
-        filterValue.innerHTML = '<option value="">Selecione...</option>' + unique.sort().map(v => `<option value="${v.replace(/'/g, "\\'")}">${v}</option>`).join('');         
+        
+        // Extrai apenas os valores válidos e ordena
+        const validData = data.map(d => d[column]).filter(Boolean);
+        const unique = [...new Set(validData)].sort();         
+        
+        filterValue.innerHTML = '<option value="">Selecione...</option>' + unique.map(v => `<option value="${v.replace(/'/g, "\\'")}">${v}</option>`).join('');         
+        
         const newFilter = filterValue.cloneNode(true);         
         filterValue.parentNode.replaceChild(newFilter, filterValue);         
         newFilter.addEventListener('change', () => { if (newFilter.value) loadEvolutionData(filterType.value, newFilter.value); });     
@@ -322,9 +338,10 @@ async function loadEvolutionSelects() {
 async function loadEvolutionData(type, value) {     
     if (!value) return;     
     try {         
-        // Busca distância e km_l para fazer a média ponderada diária ou mensal
-        const { data, error } = await supabaseClient.from('viagens').select('inicio, km_l, distancia_km').eq(type === 'motorista' ? 'motorista' : 'placa', value).order('inicio', { ascending: true });         
+        const column = type === 'motorista' ? 'motorista' : 'placa';
+        const { data, error } = await supabaseClient.from('viagens').select('inicio, km_l, distancia_km').eq(column, value).order('inicio', { ascending: true });         
         if (error) throw error;         
+        
         const monthly = new Map();         
         data.forEach(v => {             
             if (!v.km_l || v.km_l <= 0 || !v.distancia_km) return;             
@@ -335,6 +352,7 @@ async function loadEvolutionData(type, value) {
             m.dist += parseFloat(v.distancia_km);             
             m.litros += (parseFloat(v.distancia_km) / parseFloat(v.km_l));         
         });         
+        
         const sorted = Array.from(monthly.keys()).sort();         
         const labels = sorted.map(k => { const [y, m] = k.split('-'); return `${m}/${y}`; });         
         const values = sorted.map(k => { const m = monthly.get(k); return m.litros > 0 ? (m.dist / m.litros).toFixed(2) : 0; });         
@@ -354,11 +372,11 @@ function renderEvolutionChart(labels, data, type, value) {
             labels: labels.length ? labels : ['Sem dados'], 
             datasets: [{ label: label + ' (KM/L Real)', data: data.length ? data : [0], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.3, pointRadius: 4 }] 
         }, 
-        options: { responsive: true, scales: { y: { beginAtZero: true } } } 
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } 
     }); 
 }
 
-// ==================== IMPORTAÇÃO INTELIGENTE (COM FILTRO) ==================== 
+// ==================== IMPORTAÇÃO ==================== 
 function initImportModule() {     
     const uploadArea = document.getElementById('uploadArea');     
     const fileInput = document.getElementById('csvFileInput');     
@@ -396,7 +414,6 @@ async function processFiles(files) {
             const data = await parseCSVFast(file);             
             if (!data.length) { addToImportLog(`❌ Nenhum dado válido encontrado.`, 'warning'); continue; }             
             
-            // Roda a inserção no banco
             await batchInsertSupabase(data);             
             
             const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);             
@@ -467,7 +484,6 @@ function mapRowFast(row) {
         
         if (!placa) return null;
 
-        // FILTRO DE PLACAS DE APOIO
         if (PLACAS_IGNORADAS.includes(placa)) {
             return 'excluded'; 
         }
@@ -524,16 +540,16 @@ function mapRowFast(row) {
 }
 
 async function batchInsertSupabase(viagens) {     
-    // Vamos usar a tática upsert simplificada baseada em uma chave única se o banco permitir, ou apenas inserir direto para focar em performance.
-    // Como a internet do ambiente de produção estava derrubando requests massivos, enviaremos pacotes menores.
     const batchSize = 250; 
     
     for (let i = 0; i < viagens.length; i += batchSize) {         
         const batch = viagens.slice(i, i + batchSize);         
         
-        const { error } = await supabaseClient.from('viagens').upsert(batch, { onConflict: 'placa,inicio', ignoreDuplicates: true });             
+        // Uso de insert direto para evitar erro de onConflict inexistente
+        const { error } = await supabaseClient.from('viagens').insert(batch);             
         
         if (error) {
+            console.error(error);
             importStats.errors += batch.length;
         } else {
             importStats.inserted += batch.length;
@@ -544,7 +560,7 @@ async function batchInsertSupabase(viagens) {
     }          
 }
 
-// ==================== MÓDULO DE DELETE (ZONA DE PERIGO) ====================
+// ==================== DELETE BD ====================
 function initDeleteModule() {
     const deleteBtn = document.getElementById('deleteAllBtn');
     if (!deleteBtn) return;
@@ -559,7 +575,6 @@ function initDeleteModule() {
                 deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Apagando BD...';
                 deleteBtn.disabled = true;
 
-                // Comando para deletar tudo: Apaga onde placa não for nula (ou seja, todas as linhas)
                 const { error } = await supabaseClient
                     .from('viagens')
                     .delete()
@@ -613,10 +628,12 @@ function addToImportLog(message, type = 'info') {
 function showEmptyDashboard() {     
     document.querySelectorAll('.stat-card p').forEach(p => p.innerHTML = '--');     
     const tbody = document.getElementById('alertsTableBody');     
-    if (tbody) tbody.innerHTML = '<tr><td colspan="4">O banco de dados está limpo. Realize uma importação.</td></tr>'; 
+    if (tbody) tbody.innerHTML = '<tr><td colspan="3">O banco de dados está limpo.</td></tr>'; 
+    const dbody = document.getElementById('driversTableBody');
+    if (dbody) dbody.innerHTML = '<tr><td colspan="3">O banco de dados está limpo.</td></tr>'; 
 }
 
 function showDashboardError() {     
     const tbody = document.getElementById('alertsTableBody');     
-    if (tbody) tbody.innerHTML = '<tr><td colspan="4">Erro de conexão com a nuvem.</td></tr>'; 
+    if (tbody) tbody.innerHTML = '<tr><td colspan="3">Erro de conexão com a nuvem.</td></tr>'; 
 }
