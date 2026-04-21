@@ -4,6 +4,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null; 
 let isImporting = false; 
 
+// Adicionado 'short_trips' para contar quantas viagens curtas foram barradas
+let importStats = { total: 0, inserted: 0, excluded: 0, short_trips: 0, errors: 0 }; 
+
 // Variáveis de Estado Global
 let rawData = []; // Armazena em cache para cálculos rápidos
 let driverChart = null, truckChart = null, timeChart = null, evolutionChart = null; 
@@ -377,7 +380,8 @@ function initImportModule() {
 async function processFiles(files) {     
     if (isImporting) { showImportStatus('warning', 'Importação em andamento...'); return; }     
     isImporting = true;     
-    importStats = { total: 0, inserted: 0, excluded: 0, errors: 0 };     
+    // Adicionado short_trips para mapear viagens < 10km descartadas
+    importStats = { total: 0, inserted: 0, excluded: 0, short_trips: 0, errors: 0 };     
     clearImportLog();     
     showImportStatus('info', `Processando arquivo(s)...`);          
     
@@ -398,7 +402,7 @@ async function processFiles(files) {
     }          
     
     isImporting = false;     
-    const summary = `Feito! Lidas: ${importStats.total} | Novas: ${importStats.inserted} | Repetidas/Apoio: ${importStats.excluded}`;     
+    const summary = `Feito! Lidas: ${importStats.total} | Novas BD: ${importStats.inserted} | Curtas (<10km): ${importStats.short_trips} | Repetidas/Apoio: ${importStats.excluded}`;     
     showImportStatus('success', summary);          
     
     if (importStats.inserted > 0) {         
@@ -415,6 +419,7 @@ function parseCSVFast(file) {
             step: (row) => {                 
                 const mapped = mapRowFast(row.data);                 
                 if (mapped === 'excluded') { importStats.excluded++; importStats.total++; } 
+                else if (mapped === 'short_trip') { importStats.short_trips++; importStats.total++; }
                 else if (mapped) { results.push(mapped); importStats.total++; }             
             },             
             complete: () => resolve(results),             
@@ -439,6 +444,14 @@ function mapRowFast(row) {
         if (!placa) return null;
         if (PLACAS_IGNORADAS.includes(placa)) return 'excluded'; 
 
+        // EXTRAIR DISTÂNCIA E BARRAR VIAGENS MENORES QUE 10 KM
+        const distanciaStr = getResilientValue(row, ['Distância (Km)', 'Distancia', 'Dist ncia (Km)']);
+        const distancia_km = parseFloat(String(distanciaStr || '0').replace(',', '.'));
+        
+        if (distancia_km < 10) {
+            return 'short_trip'; // Retorna tag específica para contabilizar no log
+        }
+
         const parseDate = (str) => {             
             if (!str) return null;             
             const p = str.split(' '); if (p.length !== 2) return null;             
@@ -461,7 +474,7 @@ function mapRowFast(row) {
         return {             
             placa, motorista: String(getResilientValue(row, ['Motorista', 'Operador']) || 'Indefinido').trim(),             
             inicio, fim, local_inicial: String(getResilientValue(row, ['Local inicial']) || '').trim(), local_final: String(getResilientValue(row, ['Local final']) || '').trim(),             
-            distancia_km: parseFloat(String(getResilientValue(row, ['Distância (Km)']) || '0').replace(',', '.')),             
+            distancia_km: distancia_km,             
             km_l: parseFloat(String(getResilientValue(row, ['Km/l', 'KM/L']) || '0').replace(',', '.')),             
             tempo_conducao: `${parseDuration(getResilientValue(row, ['Tempo de Condução']))} seconds`,             
             tempo_parado: `${parseDuration(getResilientValue(row, ['Tempo Parado']))} seconds`         
@@ -483,7 +496,7 @@ async function batchInsertSupabase(viagens) {
         } else { importStats.excluded++; }
     }
 
-    addToImportLog(`Checando BD (evita erro 400)...`, 'info');
+    addToImportLog(`Checando BD para evitar duplicatas (evita erro 400)...`, 'info');
     const { data: dbViagens, error: dbError } = await supabaseClient
         .from('viagens').select('placa, inicio').gte('inicio', minDate).lte('inicio', maxDate).limit(100000);
 
@@ -498,10 +511,10 @@ async function batchInsertSupabase(viagens) {
     });
 
     if (viagensParaInserir.length === 0) {
-        addToImportLog(`Todas as viagens já constam no sistema.`, 'warning'); return;
+        addToImportLog(`Todas as viagens filtradas já constam no sistema.`, 'warning'); return;
     }
 
-    addToImportLog(`Enviando ${viagensParaInserir.length} novas viagens...`, 'info');
+    addToImportLog(`Enviando ${viagensParaInserir.length} novas viagens válidas...`, 'info');
     const batchSize = 300; 
     
     for (let i = 0; i < viagensParaInserir.length; i += batchSize) {         
