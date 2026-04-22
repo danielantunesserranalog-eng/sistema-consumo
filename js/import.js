@@ -169,6 +169,7 @@ function consolidateTrips(rawSegments) {
                 inicio: formatDBDate(trip.inicio), fim: formatDBDate(trip.fim),
                 local_inicial: trip.local_inicial, local_final: trip.local_final,
                 distancia_km: +(trip.distancia_km).toFixed(2), km_l: +(km_l_final).toFixed(2),
+                litros_gastos: +(trip.litros_gastos).toFixed(2),
                 tempo_conducao: `${trip.tempo_conducao_sec} seconds`, tempo_parado: `${trip.tempo_parado_sec} seconds`
             });
         } else {

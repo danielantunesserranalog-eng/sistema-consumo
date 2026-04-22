@@ -181,10 +181,10 @@ async function loadCoreData() {
     const bounds = getDateBoundaries();
     
     try {
-        // 1. BANCO PRINCIPAL (Gera Média e Distância)
+        // 1. BANCO PRINCIPAL (Gera Média e Distância) - Adicionado a coluna litros_gastos
         const viagensPromise = supabaseClient
             .from('viagens')
-            .select('placa, motorista, km_l, distancia_km, inicio, fim, tempo_conducao, tempo_parado, local_inicial, local_final')
+            .select('placa, motorista, km_l, distancia_km, litros_gastos, inicio, fim, tempo_conducao, tempo_parado, local_inicial, local_final')
             .gte('inicio', bounds.startStr)
             .lte('inicio', bounds.endStr)
             .order('inicio', { ascending: true })
@@ -301,25 +301,34 @@ function calculateMetrics(viagens, historico) {
     const driverMap = new Map();
     const truckMap = new Map();
     
-    // MÉTRICAS PRINCIPAIS (KML, DISTÂNCIA) USAM APENAS O BANCO PRINCIPAL ("viagens")
+    // MÉTRICAS PRINCIPAIS: Agora usando litros diretamente do banco
     viagens.forEach(v => {
-        if (v.distancia_km && v.distancia_km > 0 && v.km_l && v.km_l > 0) {
+        if (v.distancia_km && v.distancia_km > 0) {
             const dist = parseFloat(v.distancia_km);
-            const litros = dist / parseFloat(v.km_l);
             
-            globalDist += dist;
-            globalLitros += litros;
+            // Pega os litros com perfeição. Se a coluna for nova e o dado antigo não tiver, ele re-calcula pra não quebrar.
+            let litros = 0;
+            if (v.litros_gastos && parseFloat(v.litros_gastos) > 0) {
+                litros = parseFloat(v.litros_gastos);
+            } else if (v.km_l && parseFloat(v.km_l) > 0) {
+                litros = dist / parseFloat(v.km_l);
+            }
             
-            const dName = v.motorista || 'Indefinido';
-            if (!driverMap.has(dName)) driverMap.set(dName, { dist: 0, litros: 0, trips: 0 });
-            driverMap.get(dName).dist += dist;
-            driverMap.get(dName).litros += litros;
-            driverMap.get(dName).trips += 1;
-            
-            const tPlate = v.placa || 'Indefinido';
-            if (!truckMap.has(tPlate)) truckMap.set(tPlate, { dist: 0, litros: 0 });
-            truckMap.get(tPlate).dist += dist;
-            truckMap.get(tPlate).litros += litros;
+            if (litros > 0) {
+                globalDist += dist;
+                globalLitros += litros;
+                
+                const dName = v.motorista || 'Indefinido';
+                if (!driverMap.has(dName)) driverMap.set(dName, { dist: 0, litros: 0, trips: 0 });
+                driverMap.get(dName).dist += dist;
+                driverMap.get(dName).litros += litros;
+                driverMap.get(dName).trips += 1;
+                
+                const tPlate = v.placa || 'Indefinido';
+                if (!truckMap.has(tPlate)) truckMap.set(tPlate, { dist: 0, litros: 0 });
+                truckMap.get(tPlate).dist += dist;
+                truckMap.get(tPlate).litros += litros;
+            }
         }
     });
     
@@ -471,7 +480,18 @@ function renderDashboardCharts(viagens) {
 function renderEvolutionChartLogic(viagens, selMot, selPlac) {
     const dailyMap = new Map();
     viagens.forEach(v => {
-        if (!v.km_l || v.km_l <= 0 || !v.distancia_km) return;
+        if (!v.distancia_km || v.distancia_km <= 0) return;
+        
+        // Pega litros do banco pra não haver erro de precisão
+        let litros = 0;
+        if (v.litros_gastos && parseFloat(v.litros_gastos) > 0) {
+            litros = parseFloat(v.litros_gastos);
+        } else if (v.km_l && parseFloat(v.km_l) > 0) {
+            litros = parseFloat(v.distancia_km) / parseFloat(v.km_l);
+        }
+
+        if (litros <= 0) return;
+
         const date = new Date(v.inicio);
         const key = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
         
@@ -479,7 +499,7 @@ function renderEvolutionChartLogic(viagens, selMot, selPlac) {
         
         const m = dailyMap.get(key);
         m.dist += parseFloat(v.distancia_km);
-        m.litros += (parseFloat(v.distancia_km) / parseFloat(v.km_l));
+        m.litros += litros;
     });
     
     const sortedKeys = Array.from(dailyMap.keys()).sort((a, b) => dailyMap.get(a).dateObj - dailyMap.get(b).dateObj);
