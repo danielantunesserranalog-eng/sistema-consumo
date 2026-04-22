@@ -181,17 +181,48 @@ async function loadCoreData() {
     const bounds = getDateBoundaries();
     
     try {
-        const { data, error } = await supabaseClient
-            .from('viagens')
-            .select('placa, motorista, km_l, distancia_km, inicio, fim, tempo_conducao, tempo_parado, local_inicial, local_final')
-            .gte('inicio', bounds.startStr)
-            .lte('inicio', bounds.endStr)
-            .order('inicio', { ascending: true })
-            .limit(100000);
+        // Busca paralela nos dois bancos de dados simultaneamente com o filtro de transportadora
+        const [viagensResult, historicoResult] = await Promise.all([
+            supabaseClient
+                .from('viagens')
+                .select('placa, motorista, km_l, distancia_km, inicio, fim, tempo_conducao, tempo_parado, local_inicial, local_final')
+                .gte('inicio', bounds.startStr)
+                .lte('inicio', bounds.endStr)
+                .order('inicio', { ascending: true })
+                .limit(100000),
+            supabaseClientHistorico
+                .from('historico_viagens')
+                .select('*')
+                .eq('transportadora', 'SERRANALOG TRANSPORTES') // Filtro aplicado aqui
+                .gte('inicio', bounds.startStr)
+                .lte('inicio', bounds.endStr)
+                .limit(100000)
+        ]);
             
-        if (error) throw error;
+        if (viagensResult.error) throw viagensResult.error;
         
-        rawData = data || [];
+        let hData = [];
+        if (historicoResult.error) {
+            // Fallback: Se a coluna de data não se chamar 'inicio', busca sem filtro de data e resolve localmente
+            console.warn("Realizando fallback de busca na historico_viagens", historicoResult.error);
+            const fallbackFetch = await supabaseClientHistorico
+                .from('historico_viagens')
+                .select('*')
+                .eq('transportadora', 'SERRANALOG TRANSPORTES') // Filtro no fallback também
+                .limit(50000);
+                
+            if (!fallbackFetch.error && fallbackFetch.data) {
+                hData = fallbackFetch.data.filter(item => {
+                    const dVal = item.inicio || item.data_viagem || item.data || item.created_at;
+                    return dVal && dVal >= bounds.startStr && dVal <= bounds.endStr;
+                });
+            }
+        } else {
+            hData = historicoResult.data || [];
+        }
+
+        rawData = viagensResult.data || [];
+        rawHistorico = hData || [];
         
         if (rawData.length === 0) { showEmptyDashboard(); return; }
         
@@ -231,19 +262,28 @@ function processFilteredData() {
     const selMot = selMotObj ? selMotObj.value : 'all';
     
     let filtered = rawData;
+    let filteredHistorico = rawHistorico;
     
-    if (selPlac !== 'all') filtered = filtered.filter(v => v.placa === selPlac);
-    if (selMot !== 'all') filtered = filtered.filter(v => v.motorista === selMot);
+    if (selPlac !== 'all') {
+        filtered = filtered.filter(v => v.placa === selPlac);
+        filteredHistorico = filteredHistorico.filter(v => v.placa === selPlac);
+    }
+    if (selMot !== 'all') {
+        filtered = filtered.filter(v => v.motorista === selMot);
+        if (rawHistorico.length > 0 && rawHistorico[0].motorista !== undefined) {
+            filteredHistorico = filteredHistorico.filter(v => v.motorista === selMot);
+        }
+    }
     
     if (filtered.length === 0) { showEmptyDashboard(); return; }
     
-    calculateMetrics(filtered);
+    calculateMetrics(filtered, filteredHistorico);
     renderDashboardCharts(filtered);
     renderTables(filtered);
     renderEvolutionChartLogic(filtered, selMot, selPlac);
 }
 
-function calculateMetrics(viagens) {
+function calculateMetrics(viagens, historico) {
     let globalDist = 0; let globalLitros = 0;
     const driverMap = new Map();
     const truckMap = new Map();
@@ -289,12 +329,17 @@ function calculateMetrics(viagens) {
     const end = new Date(viagens[viagens.length - 1].inicio);
     const daysDiff = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
     
+    // ======== LÓGICA DE ALERTAS USANDO O BANCO DE HISTÓRICO ========
+    const sourceForTrips = historico && historico.length > 0 ? historico : viagens;
+    dashboardData.totalHistoricoTrips = sourceForTrips.length;
+
     const truckTrips = new Map();
-    viagens.forEach(v => { const p = v.placa || 'Indefinido'; truckTrips.set(p, (truckTrips.get(p) || 0) + 1); });
+    sourceForTrips.forEach(v => { 
+        const p = v.placa || 'Indefinido'; 
+        truckTrips.set(p, (truckTrips.get(p) || 0) + 1); 
+    });
     
     let sumTrips = 0; let active = 0; 
-    
-    // ======== NOVA LÓGICA DE ALERTAS E CRITICIDADE ========
     dashboardData.alerts = [];
     
     dashboardData.trucks.forEach(t => {

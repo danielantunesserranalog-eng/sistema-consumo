@@ -57,7 +57,9 @@ function updateStatsCards() {
     
     el('totalDistance', `${Math.round(dashboardData.totalDist).toLocaleString('pt-BR')} KM`);
     el('totalFuel', `${Math.round(dashboardData.totalFuel).toLocaleString('pt-BR')} L`);
-    el('totalTripsInfo', `${rawData.length}`);
+    
+    // Substituída a lógica de impressão para pegar a contagem do banco secundário
+    el('totalTripsInfo', `${dashboardData.totalHistoricoTrips}`);
     
     const vColor = dashboardData.avgTripsPerDay < currentMetaViagens && dashboardData.avgTripsPerDay > 0 ? '#f87171' : '#34d399';
     el('avgTripsPerDay', `${dashboardData.avgTripsPerDay.toFixed(1)} /dia`, vColor);
@@ -165,7 +167,7 @@ function renderPodium() {
     const podiumContainer = document.getElementById('podiumContainer');
     if (!podiumContainer) return;
 
-    // REGRA NOVA: KM/L > 0 E Distância > 1000 km
+    // REGRA: KM/L > 0 E Distância > 1000 km
     const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0 && d.dist > 1000).slice(0, 3);
 
     if (topDrivers.length === 0) {
@@ -173,26 +175,16 @@ function renderPodium() {
         return;
     }
 
-    // Arranjo visual do Pódio: [ 2º Lugar ] - [ 1º Lugar ] - [ 3º Lugar ]
     let displayOrder = [];
     if (topDrivers.length === 3) displayOrder = [topDrivers[1], topDrivers[0], topDrivers[2]];
     else if (topDrivers.length === 2) displayOrder = [topDrivers[1], topDrivers[0]];
     else displayOrder = [topDrivers[0]];
 
-    const rankClasses = {
-        0: 'rank-1', // Index na array real topDrivers (1º lugar)
-        1: 'rank-2', // (2º lugar)
-        2: 'rank-3'  // (3º lugar)
-    };
-
-    const icons = {
-        0: '<i class="fas fa-trophy"></i>',
-        1: '<i class="fas fa-medal"></i>',
-        2: '<i class="fas fa-award"></i>'
-    };
+    const rankClasses = { 0: 'rank-1', 1: 'rank-2', 2: 'rank-3' };
+    const icons = { 0: '<i class="fas fa-trophy"></i>', 1: '<i class="fas fa-medal"></i>', 2: '<i class="fas fa-award"></i>' };
 
     podiumContainer.innerHTML = displayOrder.map(d => {
-        const originalIndex = topDrivers.indexOf(d); // Descobre se ele é o 1º, 2º ou 3º
+        const originalIndex = topDrivers.indexOf(d);
         const rankClass = rankClasses[originalIndex];
         const icon = icons[originalIndex];
 
@@ -315,24 +307,21 @@ function renderEvolutionChartLogic(viagens, selMot, selPlac) {
     
     if(titHTML) titHTML.innerHTML = `<i class="fas fa-chart-area"></i> ${title}`;
     
-    // NOVO: Plugin customizado para desenhar os textos brancos em cima de cada ponto da linha
     const valueLabelsPlugin = {
         id: 'valueLabels',
         afterDatasetsDraw(chart) {
             const { ctx } = chart;
             chart.data.datasets.forEach((dataset, i) => {
-                // Aplica apenas na linha de desempenho, ignora a linha de Meta
                 if (dataset.label === 'KM/L Real/Dia') {
                     const meta = chart.getDatasetMeta(i);
                     meta.data.forEach((point, index) => {
                         const val = dataset.data[index];
                         if (val > 0) {
                             ctx.save();
-                            ctx.fillStyle = '#ffffff'; // Texto branco (Destacado)
+                            ctx.fillStyle = '#ffffff';
                             ctx.font = 'bold 12px Inter, sans-serif';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'bottom';
-                            // Desenha o número um pouco acima da bolinha (point.y - 10)
                             ctx.fillText(val, point.x, point.y - 10);
                             ctx.restore();
                         }
@@ -353,15 +342,14 @@ function renderEvolutionChartLogic(viagens, selMot, selPlac) {
                     borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)',
                     borderWidth: 3, fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#0f172a'
                 },
-                // NOVO: Linha de Meta destacada (amarela/dourada pontilhada)
                 {
                     label: `Meta (${currentMetaKML.toFixed(2)} KM/L)`,
                     data: sortedKeys.length ? Array(sortedKeys.length).fill(currentMetaKML) : [currentMetaKML],
-                    borderColor: '#fbbf24', // Destaque na cor Amarela/Dourada
+                    borderColor: '#fbbf24',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
-                    borderDash: [5, 5], // Define linha tracejada
-                    pointRadius: 0, // Sem bolinhas na meta
+                    borderDash: [5, 5],
+                    pointRadius: 0,
                     fill: false,
                     tension: 0
                 }
@@ -370,21 +358,13 @@ function renderEvolutionChartLogic(viagens, selMot, selPlac) {
         options: { 
             responsive: true, 
             maintainAspectRatio: false, 
-            layout: {
-                padding: {
-                    top: 25 // Dá espaço no topo para os textos em branco não cortarem no limite do gráfico
-                }
-            },
+            layout: { padding: { top: 25 } },
             scales: { 
-                y: { 
-                    beginAtZero: false, 
-                    suggestedMin: 1.0, 
-                    grid: { color: 'rgba(51,65,85,0.3)' } 
-                }, 
+                y: { beginAtZero: false, suggestedMin: 1.0, grid: { color: 'rgba(51,65,85,0.3)' } }, 
                 x: { grid: { display: false } } 
             } 
         },
-        plugins: [valueLabelsPlugin] // NOVO: Injeta o plugin customizado que criamos acima
+        plugins: [valueLabelsPlugin]
     });
 }
 
