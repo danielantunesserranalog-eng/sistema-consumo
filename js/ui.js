@@ -58,7 +58,7 @@ function updateStatsCards() {
     el('totalDistance', `${Math.round(dashboardData.totalDist).toLocaleString('pt-BR')} KM`);
     el('totalFuel', `${Math.round(dashboardData.totalFuel).toLocaleString('pt-BR')} L`);
     
-    // Substituída a lógica de impressão para pegar a contagem do banco secundário
+    // Apontando exclusivamente para a contagem do banco secundário (historico_viagens)
     el('totalTripsInfo', `${dashboardData.totalHistoricoTrips}`);
     
     const vColor = dashboardData.avgTripsPerDay < currentMetaViagens && dashboardData.avgTripsPerDay > 0 ? '#f87171' : '#34d399';

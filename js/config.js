@@ -15,7 +15,7 @@ let currentMetaViagens = 2.0;
 const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008', 'RBJ6J29']; 
 
 let rawData = []; 
-let rawHistorico = []; // Armazena dados do banco de histórico
+let rawHistorico = []; // Armazena isoladamente dados do banco de histórico
 
 let dashboardData = { 
     avgConsumption: 0, totalDist: 0, totalFuel: 0, avgTripsPerDay: 0, totalHistoricoTrips: 0,

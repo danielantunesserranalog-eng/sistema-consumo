@@ -181,56 +181,70 @@ async function loadCoreData() {
     const bounds = getDateBoundaries();
     
     try {
-        // Busca paralela nos dois bancos de dados simultaneamente com o filtro de transportadora
-        const [viagensResult, historicoResult] = await Promise.all([
-            supabaseClient
-                .from('viagens')
-                .select('placa, motorista, km_l, distancia_km, inicio, fim, tempo_conducao, tempo_parado, local_inicial, local_final')
-                .gte('inicio', bounds.startStr)
-                .lte('inicio', bounds.endStr)
-                .order('inicio', { ascending: true })
-                .limit(100000),
-            supabaseClientHistorico
-                .from('historico_viagens')
-                .select('*')
-                .eq('transportadora', 'SERRANALOG TRANSPORTES') // Filtro aplicado aqui
-                .gte('inicio', bounds.startStr)
-                .lte('inicio', bounds.endStr)
-                .limit(100000)
-        ]);
+        // 1. BANCO PRINCIPAL (Gera Média e Distância)
+        const viagensPromise = supabaseClient
+            .from('viagens')
+            .select('placa, motorista, km_l, distancia_km, inicio, fim, tempo_conducao, tempo_parado, local_inicial, local_final')
+            .gte('inicio', bounds.startStr)
+            .lte('inicio', bounds.endStr)
+            .order('inicio', { ascending: true })
+            .limit(100000);
+
+        // 2. BANCO SECUNDÁRIO (Busca geral da transportadora para evitar erro de banco)
+        const historicoPromise = supabaseClientHistorico
+            .from('historico_viagens')
+            .select('*')
+            .eq('transportadora', 'SERRANALOG TRANSPORTES')
+            .limit(100000);
+
+        const [viagensResult, historicoResult] = await Promise.all([viagensPromise, historicoPromise]);
             
         if (viagensResult.error) throw viagensResult.error;
         
-        let hData = [];
-        if (historicoResult.error) {
-            // Fallback: Se a coluna de data não se chamar 'inicio', busca sem filtro de data e resolve localmente
-            console.warn("Realizando fallback de busca na historico_viagens", historicoResult.error);
-            const fallbackFetch = await supabaseClientHistorico
-                .from('historico_viagens')
-                .select('*')
-                .eq('transportadora', 'SERRANALOG TRANSPORTES') // Filtro no fallback também
-                .limit(50000);
-                
-            if (!fallbackFetch.error && fallbackFetch.data) {
-                hData = fallbackFetch.data.filter(item => {
-                    const dVal = item.inicio || item.data_viagem || item.data || item.created_at;
-                    return dVal && dVal >= bounds.startStr && dVal <= bounds.endStr;
-                });
-            }
-        } else {
-            hData = historicoResult.data || [];
-        }
-
         rawData = viagensResult.data || [];
-        rawHistorico = hData || [];
         
         if (rawData.length === 0) { showEmptyDashboard(); return; }
+
+        // 3. FILTRAGEM DE DATAS (CORRIGIDO PARA O FORMATO BRASILEIRO DO EXCEL)
+        rawHistorico = [];
+        if (!historicoResult.error && historicoResult.data) {
+            const startMs = new Date(bounds.startStr.replace(' ', 'T')).getTime();
+            const endMs = new Date(bounds.endStr.replace(' ', 'T')).getTime();
+
+            rawHistorico = historicoResult.data.filter(item => {
+                // Tenta pegar a coluna dataDaBaseExcel, se não achar tenta dataLancamento
+                const dVal = item.dataDaBaseExcel || item.dataLancamento || item.created_at;
+                if (!dVal) return true; // Na dúvida, aceita a viagem para não zerar os cards
+                
+                let itemMs;
+                const strVal = String(dVal).trim();
+                
+                // Se a data vier no formato brasileiro (ex: 18/04/2026), inverte para o computador entender
+                if (strVal.includes('/')) {
+                    const parts = strVal.split('/');
+                    if (parts.length >= 3) {
+                        const day = parts[0].padStart(2, '0');
+                        const month = parts[1].padStart(2, '0');
+                        const year = parts[2].substring(0, 4); // Pega apenas o ano
+                        itemMs = new Date(`${year}-${month}-${day}T12:00:00`).getTime();
+                    }
+                } else {
+                    itemMs = new Date(strVal).getTime();
+                }
+                
+                if (isNaN(itemMs)) return true; // Se a data for muito louca, aceita a viagem
+                
+                return itemMs >= startMs && itemMs <= endMs;
+            });
+        } else if (historicoResult.error) {
+            console.warn("Aviso: Falha ao carregar banco de histórico.", historicoResult.error);
+        }
         
         populateEntityDropdowns();
         processFilteredData();
         
     } catch (e) {
-        console.error(e);
+        console.error("Erro na carga do banco principal:", e);
         showDashboardError();
     }
 }
@@ -266,13 +280,12 @@ function processFilteredData() {
     
     if (selPlac !== 'all') {
         filtered = filtered.filter(v => v.placa === selPlac);
-        filteredHistorico = filteredHistorico.filter(v => v.placa === selPlac);
-    }
-    if (selMot !== 'all') {
-        filtered = filtered.filter(v => v.motorista === selMot);
-        if (rawHistorico.length > 0 && rawHistorico[0].motorista !== undefined) {
-            filteredHistorico = filteredHistorico.filter(v => v.motorista === selMot);
-        }
+        // Remove traços e espaços para a comparação ser exata
+        const normSelPlac = String(selPlac).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        filteredHistorico = filteredHistorico.filter(v => {
+            const normV = String(v.placa || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            return normV === normSelPlac;
+        });
     }
     
     if (filtered.length === 0) { showEmptyDashboard(); return; }
@@ -288,6 +301,7 @@ function calculateMetrics(viagens, historico) {
     const driverMap = new Map();
     const truckMap = new Map();
     
+    // MÉTRICAS PRINCIPAIS (KML, DISTÂNCIA) USAM APENAS O BANCO PRINCIPAL ("viagens")
     viagens.forEach(v => {
         if (v.distancia_km && v.distancia_km > 0 && v.km_l && v.km_l > 0) {
             const dist = parseFloat(v.distancia_km);
@@ -329,21 +343,26 @@ function calculateMetrics(viagens, historico) {
     const end = new Date(viagens[viagens.length - 1].inicio);
     const daysDiff = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
     
-    // ======== LÓGICA DE ALERTAS USANDO O BANCO DE HISTÓRICO ========
-    const sourceForTrips = historico && historico.length > 0 ? historico : viagens;
-    dashboardData.totalHistoricoTrips = sourceForTrips.length;
+    // ======== LÓGICA DE ALERTAS E VIAGENS USANDO APENAS O BANCO DE HISTÓRICO ========
+    dashboardData.totalHistoricoTrips = historico.length;
 
     const truckTrips = new Map();
-    sourceForTrips.forEach(v => { 
-        const p = v.placa || 'Indefinido'; 
+    historico.forEach(v => { 
+        // Remove espaços, traços e bota tudo maiúsculo (ex: "ABC-1234" -> "ABC1234")
+        let p = v.placa || v.Placa || v.PLACA || 'Indefinido'; 
+        p = String(p).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         truckTrips.set(p, (truckTrips.get(p) || 0) + 1); 
     });
     
     let sumTrips = 0; let active = 0; 
     dashboardData.alerts = [];
     
+    // Cruza a placa do banco principal com a contagem feita acima
     dashboardData.trucks.forEach(t => {
-        const avg = (truckTrips.get(t.plate) || 0) / daysDiff;
+        const normPlate = String(t.plate).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const tripsTotal = truckTrips.get(normPlate) || 0;
+        const avg = tripsTotal / daysDiff;
+        
         sumTrips += avg; 
         active++;
         
@@ -373,14 +392,203 @@ function calculateMetrics(viagens, historico) {
         });
     });
     
-    // Ordenar do mais crítico para o menos crítico
     dashboardData.alerts.sort((a, b) => {
-        if (b.peso !== a.peso) return b.peso - a.peso; // Primeiro critério: Maior peso = pior
-        if (a.kml !== b.kml) return a.kml - b.kml;     // Segundo critério: Menor KM/L = pior
-        return a.trips - b.trips;                      // Terceiro critério: Menor qtd de viagens = pior
+        if (b.peso !== a.peso) return b.peso - a.peso;
+        if (a.kml !== b.kml) return a.kml - b.kml;     
+        return a.trips - b.trips;                      
     });
-    // =======================================================
     
     dashboardData.avgTripsPerDay = active > 0 ? (sumTrips / active) : 0;
     updateStatsCards();
+}
+
+// ===========================================================
+
+function parseInterval(i) {
+    if (!i) return 0;
+    if (typeof i === 'number') return i;
+    if (typeof i === 'string') {
+        if (i.includes('second')) return parseInt(i.replace(/\D/g, '')) || 0;
+        const match = i.match(/(\d+):(\d+):(\d+)/);
+        if (match) return parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
+        let sec = 0;
+        const h = i.match(/(\d+)\s*h/i); const m = i.match(/(\d+)\s*m/i); const s = i.match(/(\d+)\s*s/i);
+        if (h) sec += parseInt(h[1]) * 3600; if (m) sec += parseInt(m[1]) * 60; if (s) sec += parseInt(s[1]);
+        return sec;
+    }
+    return 0;
+}
+
+function renderDashboardCharts(viagens) {
+    if (driverChart) driverChart.destroy();
+    const dt = dashboardData.drivers.slice(0, 10);
+    driverChart = new Chart(document.getElementById('driverConsumptionChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: dt.map(d => d.name.length > 12 ? d.name.substring(0, 12) + '...' : d.name),
+            datasets: [{ label: 'KM/L Real', data: dt.map(d => d.realKML), backgroundColor: dt.map(d => d.realKML < currentMetaKML ? '#ef4444' : '#10b981'), borderRadius: 6 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(51,65,85,0.3)' } }, x: { grid: { display: false } } } }
+    });
+    
+    if (truckChart) truckChart.destroy();
+    const tt = dashboardData.trucks.slice(0, 10);
+    truckChart = new Chart(document.getElementById('truckConsumptionChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: tt.map(t => t.plate), datasets: [{ label: 'KM/L Real', data: tt.map(t => t.realKML), backgroundColor: tt.map(t => t.realKML < currentMetaKML ? '#ef4444' : '#3b82f6'), borderRadius: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(51,65,85,0.3)' } }, x: { grid: { display: false } } } }
+    });
+    
+    if (timeChart) timeChart.destroy();
+    let conducaoSec = 0, paradoSec = 0;
+    let viagensCount = viagens.length || 1;
+    viagens.forEach(v => {
+        conducaoSec += parseInterval(v.tempo_conducao);
+        paradoSec += parseInterval(v.tempo_parado);
+    });
+    if (conducaoSec === 0 && paradoSec === 0) { conducaoSec = 1; paradoSec = 1; }
+    
+    const hrsConducao = (conducaoSec / 3600);
+    const hrsParado = (paradoSec / 3600);
+    const percEficiencia = ((hrsConducao / (hrsConducao + hrsParado)) * 100).toFixed(1);
+    
+    document.getElementById('totConducao').innerText = `${hrsConducao.toFixed(1)}h`;
+    document.getElementById('medConducao').innerText = `Média: ${(hrsConducao / viagensCount).toFixed(1)}h / viag`;
+    document.getElementById('totParado').innerText = `${hrsParado.toFixed(1)}h`;
+    document.getElementById('medParado').innerText = `Média: ${(hrsParado / viagensCount).toFixed(1)}h / viag`;
+    document.getElementById('centerEficiencia').innerText = `${percEficiencia}%`;
+    
+    timeChart = new Chart(document.getElementById('timeDistributionChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Tempo Condução', 'Tempo Parado'],
+            datasets: [{ data: [conducaoSec, paradoSec], backgroundColor: ['#3b82f6', '#f59e0b'], borderWidth: 0, hoverOffset: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${(c.raw / 3600).toFixed(1)}h` } } } }
+    });
+}
+
+function renderEvolutionChartLogic(viagens, selMot, selPlac) {
+    const dailyMap = new Map();
+    viagens.forEach(v => {
+        if (!v.km_l || v.km_l <= 0 || !v.distancia_km) return;
+        const date = new Date(v.inicio);
+        const key = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!dailyMap.has(key)) dailyMap.set(key, { dist: 0, litros: 0, dateObj: date });
+        
+        const m = dailyMap.get(key);
+        m.dist += parseFloat(v.distancia_km);
+        m.litros += (parseFloat(v.distancia_km) / parseFloat(v.km_l));
+    });
+    
+    const sortedKeys = Array.from(dailyMap.keys()).sort((a, b) => dailyMap.get(a).dateObj - dailyMap.get(b).dateObj);
+    const values = sortedKeys.map(k => { const m = dailyMap.get(k); return m.litros > 0 ? (m.dist / m.litros).toFixed(2) : 0; });
+    
+    const canvas = document.getElementById('evolutionChart');
+    if (!canvas) return;
+    if (evolutionChart) evolutionChart.destroy();
+    
+    let title = 'Frota Geral (Todos os Veículos e Motoristas)';
+    const titHTML = document.getElementById('tituloEvolucao');
+    if (selMot !== 'all' && selPlac !== 'all') {
+        title = `Desempenho: ${selMot} na Máquina ${selPlac}`;
+    } else if (selMot !== 'all') {
+        title = `Desempenho: ${selMot} (Todos os veículos)`;
+    } else if (selPlac !== 'all') {
+        title = `Desempenho: Máquina ${selPlac} (Todos os motoristas)`;
+    }
+    
+    if(titHTML) titHTML.innerHTML = `<i class="fas fa-chart-area"></i> ${title}`;
+    
+    const valueLabelsPlugin = {
+        id: 'valueLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            chart.data.datasets.forEach((dataset, i) => {
+                if (dataset.label === 'KM/L Real/Dia') {
+                    const meta = chart.getDatasetMeta(i);
+                    meta.data.forEach((point, index) => {
+                        const val = dataset.data[index];
+                        if (val > 0) {
+                            ctx.save();
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 12px Inter, sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            ctx.fillText(val, point.x, point.y - 10);
+                            ctx.restore();
+                        }
+                    });
+                }
+            });
+        }
+    };
+
+    evolutionChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: sortedKeys.length ? sortedKeys : ['Sem dados'],
+            datasets: [
+                {
+                    label: 'KM/L Real/Dia',
+                    data: values.length ? values : [0],
+                    borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                    borderWidth: 3, fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#0f172a'
+                },
+                {
+                    label: `Meta (${currentMetaKML.toFixed(2)} KM/L)`,
+                    data: sortedKeys.length ? Array(sortedKeys.length).fill(currentMetaKML) : [currentMetaKML],
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0
+                }
+            ]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            layout: { padding: { top: 25 } },
+            scales: { 
+                y: { beginAtZero: false, suggestedMin: 1.0, grid: { color: 'rgba(51,65,85,0.3)' } }, 
+                x: { grid: { display: false } } 
+            } 
+        },
+        plugins: [valueLabelsPlugin]
+    });
+}
+
+function showEmptyDashboard() {
+    document.querySelectorAll('.stat-card p').forEach(p => p.innerHTML = '--');
+    
+    ['alertsTableBody', 'driversTableBody', 'historyTableBody', 'rankingTableBody'].forEach(id => {
+        const e = document.getElementById(id);
+        const cols = id === 'historyTableBody' || id === 'rankingTableBody' ? 6 : (id === 'alertsTableBody' ? 4 : 3);
+        if (e) e.innerHTML = `<tr><td colspan="${cols}" class="text-center text-warning">Sem dados para este período e/ou filtros.</td></tr>`;
+    });
+    
+    const ids = ['totConducao', 'totParado'];
+    ids.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = '--h'; });
+    const meds = ['medConducao', 'medParado'];
+    meds.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = 'Média: --h / viag'; });
+    
+    if(document.getElementById('avgTripsPerDay')) document.getElementById('avgTripsPerDay').innerText = '--/dia';
+    if(document.getElementById('centerEficiencia')) document.getElementById('centerEficiencia').innerText = '--%';
+    
+    const pContainer = document.getElementById('podiumContainer');
+    if (pContainer) pContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Sem dados para gerar o pódio.</div>';
+    
+    if (driverChart) driverChart.destroy();
+    if (truckChart) truckChart.destroy();
+    if (timeChart) timeChart.destroy();
+    if (evolutionChart) evolutionChart.destroy();
+}
+
+function showDashboardError() {
+    const tbody = document.getElementById('alertsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Erro de conexão.</td></tr>';
 }
