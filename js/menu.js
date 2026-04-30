@@ -15,6 +15,13 @@ const menuConfig = [
         active: false 
     },
     { 
+        id: 'motorista-destaque', 
+        icon: 'fas fa-star', 
+        menuLabel: 'Motorista Destaque', 
+        pageTitle: 'Top 3 Motoristas (Pódio)', 
+        active: false 
+    },
+    { 
         id: 'consumo-evolution', 
         icon: 'fas fa-list-alt', 
         menuLabel: 'Histórico Detalhado', 

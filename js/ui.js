@@ -169,6 +169,47 @@ function renderTables(viagens) {
             }).join('');
         }
     }
+
+    renderPodium();
+}
+
+function renderPodium() {
+    const podiumContainer = document.getElementById('podiumContainer');
+    if (!podiumContainer) return;
+    
+    const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0 && d.dist > 10).slice(0, 3);
+    if (topDrivers.length === 0) {
+        podiumContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Nenhum motorista atingiu a distância mínima no período selecionado.</div>';
+        return;
+    }
+    
+    let displayOrder = [];
+    if (topDrivers.length === 3) displayOrder = [topDrivers[1], topDrivers[0], topDrivers[2]];
+    else if (topDrivers.length === 2) displayOrder = [topDrivers[1], topDrivers[0]];
+    else displayOrder = [topDrivers[0]];
+    
+    const rankClasses = { 0: 'rank-1', 1: 'rank-2', 2: 'rank-3' };
+    const icons = { 0: '<i class="fas fa-trophy"></i>', 1: '<i class="fas fa-medal"></i>', 2: '<i class="fas fa-award"></i>' };
+    
+    podiumContainer.innerHTML = displayOrder.map(d => {
+        const originalIndex = topDrivers.indexOf(d);
+        const rankClass = rankClasses[originalIndex];
+        const icon = icons[originalIndex];
+        return `
+            <div class="podium-card ${rankClass}">
+                <div class="rank-badge">${icon}</div>
+                <div class="podium-avatar"><i class="fas fa-user-astronaut"></i></div>
+                <div class="podium-name">${d.name}</div>
+                <div class="podium-kml">${d.realKML.toFixed(2)} <span style="font-size: 0.9rem; font-weight: 500; color: #94a3b8;">KM/L</span></div>
+                <div class="podium-stats">
+                    <div class="p-stat">
+                        <span>Distância</span>
+                        <strong>${Math.round(d.dist).toLocaleString('pt-BR')} km</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Renderiza a Aba "Indicadores Suzano"
@@ -379,6 +420,9 @@ function showEmptyDashboard() {
     meds.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = 'Média: --h / viag'; });
     
     if(document.getElementById('centerEficiencia')) document.getElementById('centerEficiencia').innerText = '--%';
+    
+    const pContainer = document.getElementById('podiumContainer');
+    if (pContainer) pContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Sem dados para gerar o pódio.</div>';
     
     if (driverChart) driverChart.dispose();
     if (truckChart) truckChart.dispose();
