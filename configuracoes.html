@@ -22,10 +22,18 @@
                         <label>Pontos por KM/L (média)</label>
                         <input type="number" id="points-per-economy" step="1" class="form-control filter-input" style="width: 100%;">
                     </div>
+                    
                     <div class="form-group" style="margin-top: 20px;">
                         <label>Redução de pontos por ocorrência</label>
                         <input type="number" id="penalty-per-occurrence" step="10" class="form-control filter-input" style="width: 100%;">
                     </div>
+
+                    <!-- NOVO CAMPO: META GERAL -->
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>Meta Mensal Geral (KM/L)</label>
+                        <input type="number" id="global-goal" step="0.1" class="form-control filter-input" style="width: 100%;">
+                    </div>
+
                     <div class="form-group" style="margin-top: 20px; margin-bottom: 30px;">
                         <label>Reset mensal de pontuação</label>
                         <select id="reset-score" class="form-control filter-input" style="width: 100%;">
@@ -33,6 +41,7 @@
                             <option value="true">Resetar todo mês</option>
                         </select>
                     </div>
+
                     <button class="btn-primary" onclick="window.settingsModule.save()">
                         <i class="fas fa-save"></i> Salvar Configurações
                     </button>

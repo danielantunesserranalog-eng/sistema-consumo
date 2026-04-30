@@ -44,9 +44,9 @@
             <div class="modal-body">
                 <form id="driver-form">
                     <div class="form-group"><label>Nome Completo</label><input type="text" id="driver-name" required class="form-control filter-input" style="width: 100%;"></div>
-                    <div class="form-group" style="margin-top: 15px;"><label>CPF</label><input type="text" id="driver-cpf" required class="form-control filter-input" style="width: 100%;" pattern="\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}"></div>
+                    <div class="form-group" style="margin-top: 15px;"><label>CPF</label><input type="text" id="driver-cpf" required class="form-control filter-input" style="width: 100%;" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}"></div>
                     <div class="form-group" style="margin-top: 15px;"><label>Matrícula</label><input type="text" id="driver-matricula" required class="form-control filter-input" style="width: 100%;"></div>
-                    <div class="form-group" style="margin-top: 15px;"><label>Meta Mensal (KM/L)</label><input type="number" id="driver-goal" step="0.1" class="form-control filter-input" style="width: 100%;" value="3.0"></div>
+                    
                     <div class="modal-footer" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
                         <button type="button" class="btn-secondary" onclick="window.driversModule.closeModal()">Cancelar</button>
                         <button type="submit" class="btn-primary">Salvar</button>

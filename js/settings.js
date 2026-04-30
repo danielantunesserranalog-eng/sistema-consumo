@@ -1,5 +1,5 @@
 window.settingsModule = (function() {
-    let settings = { pointsPerEconomy: 10, penaltyPerOccurrence: 100, resetMonthly: false };
+    let settings = { pointsPerEconomy: 10, penaltyPerOccurrence: 100, resetMonthly: false, globalGoal: 3.0 };
     let dbId = null; // Guarda o ID do banco se existir
 
     async function load() {
@@ -9,41 +9,47 @@ window.settingsModule = (function() {
             settings = {
                 pointsPerEconomy: parseFloat(data[0].points_per_economy),
                 penaltyPerOccurrence: parseFloat(data[0].penalty_per_occurrence),
-                resetMonthly: data[0].reset_monthly
+                resetMonthly: data[0].reset_monthly,
+                globalGoal: parseFloat(data[0].global_goal || 3.0)
             };
         }
-
+        
         const pointsInput = document.getElementById('points-per-economy');
         const penaltyInput = document.getElementById('penalty-per-occurrence');
         const resetSelect = document.getElementById('reset-score');
+        const goalInput = document.getElementById('global-goal');
 
         if (pointsInput) pointsInput.value = settings.pointsPerEconomy;
         if (penaltyInput) penaltyInput.value = settings.penaltyPerOccurrence;
         if (resetSelect) resetSelect.value = settings.resetMonthly;
+        if (goalInput) goalInput.value = settings.globalGoal;
     }
 
     async function save() {
         const pointsInput = document.getElementById('points-per-economy').value;
         const penaltyInput = document.getElementById('penalty-per-occurrence').value;
         const resetSelect = document.getElementById('reset-score').value === 'true';
+        const goalInput = document.getElementById('global-goal').value;
 
         settings = {
             pointsPerEconomy: parseFloat(pointsInput),
             penaltyPerOccurrence: parseFloat(penaltyInput),
-            resetMonthly: resetSelect
+            resetMonthly: resetSelect,
+            globalGoal: parseFloat(goalInput)
         };
 
         const dbPayload = {
             points_per_economy: settings.pointsPerEconomy,
             penalty_per_occurrence: settings.penaltyPerOccurrence,
-            reset_monthly: settings.resetMonthly
+            reset_monthly: settings.resetMonthly,
+            global_goal: settings.globalGoal
         };
 
         if (dbId) {
             await window.supabaseClient.from('configuracoes').update(dbPayload).eq('id', dbId);
         } else {
             const { data } = await window.supabaseClient.from('configuracoes').insert([dbPayload]).select();
-            if (data) dbId = data[0].id;
+            if (data && data.length > 0) dbId = data[0].id;
         }
 
         if (window.driversModule) {
@@ -57,13 +63,8 @@ window.settingsModule = (function() {
 
     async function clearAllData() {
         if (confirm("ATENÇÃO: Você está prestes a apagar TODAS as viagens importadas do banco de dados.\n\nOs cadastros de Motoristas, Cavalos e Ocorrências NÃO SERÃO ALTERADOS. Deseja continuar?")) {
-            
-            // Apaga APENAS as viagens. Nenhuma outra tabela é tocada.
             await window.supabaseClient.from('viagens').delete().neq('id', 0);
-            
             utils.showAlert('Todas as viagens foram apagadas com sucesso.', 'success');
-            
-            // Recarrega a página para atualizar as listas vazias na tela
             setTimeout(() => { window.location.reload(); }, 1500);
         }
     }

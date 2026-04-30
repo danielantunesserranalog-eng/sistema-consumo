@@ -14,6 +14,7 @@ window.driversModule = (function() {
     function renderDrivers() {
         const tbody = document.getElementById('drivers-list');
         if (!tbody) return;
+        
         tbody.innerHTML = drivers.map(driver => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(driver.name)}</td>
@@ -41,18 +42,17 @@ window.driversModule = (function() {
         editingId = driverId;
         const modal = document.getElementById('driver-modal');
         const title = document.getElementById('modal-title');
+        
         if (driverId) {
             const driver = drivers.find(d => d.id === driverId);
             if (driver) {
                 document.getElementById('driver-name').value = driver.name;
                 document.getElementById('driver-cpf').value = driver.cpf;
                 document.getElementById('driver-matricula').value = driver.matricula;
-                document.getElementById('driver-goal').value = driver.goal || 3.0;
                 title.textContent = 'Editar Motorista';
             }
         } else {
             document.getElementById('driver-form').reset();
-            document.getElementById('driver-goal').value = 3.0;
             title.textContent = 'Novo Motorista';
         }
         modal.classList.add('active');
@@ -68,12 +68,11 @@ window.driversModule = (function() {
         event.preventDefault();
         const btn = event.target.querySelector('button[type="submit"]');
         btn.disabled = true;
-
+        
         const driverData = {
             name: document.getElementById('driver-name').value,
             cpf: document.getElementById('driver-cpf').value,
-            matricula: document.getElementById('driver-matricula').value,
-            goal: parseFloat(document.getElementById('driver-goal').value)
+            matricula: document.getElementById('driver-matricula').value
         };
 
         if (editingId) {
@@ -86,12 +85,14 @@ window.driversModule = (function() {
             driverData.total_fuel = 0;
             driverData.avg_economy = 0;
             driverData.last_reset = new Date().toISOString();
+            
             await window.supabaseClient.from('motoristas').insert([driverData]);
             utils.showAlert('Motorista cadastrado no banco de dados!', 'success');
         }
-
+        
         await loadDrivers();
         closeModal();
+        
         if (window.tripsModule) window.tripsModule.updateDriverStats();
         btn.disabled = false;
     }
@@ -131,24 +132,24 @@ window.driversModule = (function() {
             totalDistance += parseFloat(trip.distancia_km) || 0;
             totalFuel += parseFloat(trip.total_litros) || 0;
         });
-
+        
         const newScore = Math.max(0, Math.round(score - (driver.occurrences * settings.penaltyPerOccurrence)));
         const avgEconomy = totalFuel > 0 ? totalDistance / totalFuel : 0;
-
+        
         let payload = {
             score: newScore,
             total_distance: totalDistance,
             total_fuel: totalFuel,
             avg_economy: avgEconomy
         };
-
+        
         if (settings.resetMonthly && utils.shouldResetScore(driver.last_reset)) {
             payload.score = 0;
             payload.occurrences = 0;
             payload.last_reset = new Date().toISOString();
             utils.showAlert(`Pontuação de ${driver.name} foi resetada para o novo mês!`, 'info');
         }
-
+        
         await window.supabaseClient.from('motoristas').update(payload).eq('id', driver.id);
     }
 
@@ -166,5 +167,15 @@ window.driversModule = (function() {
         if (form) form.addEventListener('submit', saveDriver);
     });
 
-    return { load: loadDrivers, getAll: getAllDrivers, openModal, closeModal, edit: openModal, delete: deleteDriver, addOccurrence, updateScores: updateAllScores, updateDriverScore };
+    return { 
+        load: loadDrivers, 
+        getAll: getAllDrivers, 
+        openModal, 
+        closeModal, 
+        edit: openModal, 
+        delete: deleteDriver, 
+        addOccurrence, 
+        updateScores: updateAllScores, 
+        updateDriverScore 
+    };
 })();
