@@ -56,16 +56,15 @@ window.settingsModule = (function() {
     function get() { return settings; }
 
     async function clearAllData() {
-        if (confirm("ATENÇÃO: Você está prestes a apagar TODOS os dados do Supabase.\nIsso inclui motoristas, viagens, cavalos e ocorrências.\n\nTem certeza absoluta?")) {
-            if (confirm("Este é o ÚLTIMO AVISO. Os dados NÃO poderão ser recuperados. APAGAR TUDO?")) {
-                await window.supabaseClient.from('motoristas').delete().neq('id', 0);
-                await window.supabaseClient.from('cavalos').delete().neq('id', 0);
-                await window.supabaseClient.from('ocorrencias').delete().neq('id', 0);
-                await window.supabaseClient.from('viagens').delete().neq('id', 0);
-                
-                utils.showAlert('Banco de dados na nuvem resetado com sucesso.', 'success');
-                setTimeout(() => { window.location.reload(); }, 1500);
-            }
+        if (confirm("ATENÇÃO: Você está prestes a apagar TODAS as viagens importadas do banco de dados.\n\nOs cadastros de Motoristas, Cavalos e Ocorrências NÃO SERÃO ALTERADOS. Deseja continuar?")) {
+            
+            // Apaga APENAS as viagens. Nenhuma outra tabela é tocada.
+            await window.supabaseClient.from('viagens').delete().neq('id', 0);
+            
+            utils.showAlert('Todas as viagens foram apagadas com sucesso.', 'success');
+            
+            // Recarrega a página para atualizar as listas vazias na tela
+            setTimeout(() => { window.location.reload(); }, 1500);
         }
     }
 
