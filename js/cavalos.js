@@ -1,26 +1,21 @@
-// Cavalos management module
 window.cavalosModule = (function() {
     let cavalos = [];
     let editingId = null;
 
-    function loadCavalos() {
-        const stored = localStorage.getItem('motorista_padrao_cavalos');
-        cavalos = stored ? JSON.parse(stored) : [];
+    async function loadCavalos() {
+        const { data, error } = await window.supabaseClient.from('cavalos').select('*').order('created_at', { ascending: false });
+        if (!error && data) {
+            cavalos = data;
+        }
         renderCavalos();
         return cavalos;
-    }
-
-    function saveCavalos() {
-        localStorage.setItem('motorista_padrao_cavalos', JSON.stringify(cavalos));
     }
 
     function renderCavalos() {
         const tbody = document.getElementById('cavalos-list');
         if (!tbody) return;
-
         tbody.innerHTML = cavalos.map(cavalo => {
             const carretas = [cavalo.carreta1, cavalo.carreta2, cavalo.carreta3].filter(c => c).join(' / ');
-            
             return `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(cavalo.conjunto)}</td>
@@ -30,12 +25,8 @@ window.cavalosModule = (function() {
                 <td style="color: #94a3b8; font-size: 0.8rem;">${escapeHtml(carretas || 'Nenhuma')}</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-primary btn-sm btn-icon" title="Editar" onclick="window.cavalosModule.edit(${cavalo.id})">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn-danger btn-sm btn-icon" title="Excluir" onclick="window.cavalosModule.delete(${cavalo.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <button class="btn-primary btn-sm btn-icon" title="Editar" onclick="window.cavalosModule.edit(${cavalo.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn-danger btn-sm btn-icon" title="Excluir" onclick="window.cavalosModule.delete(${cavalo.id})"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>
@@ -55,7 +46,6 @@ window.cavalosModule = (function() {
         const modal = document.getElementById('cavalo-modal');
         const title = document.getElementById('cavalo-modal-title');
         const form = document.getElementById('cavalo-form');
-
         if (cavaloId) {
             const cavalo = cavalos.find(c => c.id === cavaloId);
             if (cavalo) {
@@ -72,19 +62,19 @@ window.cavalosModule = (function() {
             form.reset();
             title.textContent = 'Novo Cavalo';
         }
-
         modal.classList.add('active');
     }
 
     function closeModal() {
-        const modal = document.getElementById('cavalo-modal');
-        modal.classList.remove('active');
+        document.getElementById('cavalo-modal').classList.remove('active');
         editingId = null;
         document.getElementById('cavalo-form').reset();
     }
 
-    function saveCavalo(event) {
+    async function saveCavalo(event) {
         event.preventDefault();
+        const btn = event.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
 
         const cavaloData = {
             conjunto: document.getElementById('cavalo-conjunto').value.toUpperCase(),
@@ -97,49 +87,32 @@ window.cavalosModule = (function() {
         };
 
         if (editingId) {
-            const index = cavalos.findIndex(c => c.id === editingId);
-            if (index !== -1) {
-                cavaloData.id = editingId;
-                cavalos[index] = cavaloData;
-                utils.showAlert('Cavalo atualizado com sucesso!', 'success');
-            }
+            const { error } = await window.supabaseClient.from('cavalos').update(cavaloData).eq('id', editingId);
+            if (!error) utils.showAlert('Cavalo atualizado com sucesso!', 'success');
         } else {
-            cavaloData.id = Date.now();
-            cavalos.push(cavaloData);
-            utils.showAlert('Cavalo cadastrado com sucesso!', 'success');
+            const { error } = await window.supabaseClient.from('cavalos').insert([cavaloData]);
+            if (!error) utils.showAlert('Cavalo cadastrado no banco de dados!', 'success');
         }
 
-        saveCavalos();
-        renderCavalos();
+        await loadCavalos();
         closeModal();
+        btn.disabled = false;
     }
 
-    function deleteCavalo(id) {
-        if (confirm('Tem certeza que deseja excluir este cavalo?')) {
-            cavalos = cavalos.filter(c => c.id !== id);
-            saveCavalos();
-            renderCavalos();
+    async function deleteCavalo(id) {
+        if (confirm('Tem certeza que deseja excluir este cavalo do banco de dados?')) {
+            await window.supabaseClient.from('cavalos').delete().eq('id', id);
+            await loadCavalos();
             utils.showAlert('Cavalo excluído com sucesso!', 'success');
         }
     }
 
-    function getAllCavalos() {
-        return cavalos;
-    }
+    function getAllCavalos() { return cavalos; }
 
     document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('cavalo-form');
-        if (form) {
-            form.addEventListener('submit', saveCavalo);
-        }
+        if (form) form.addEventListener('submit', saveCavalo);
     });
 
-    return {
-        load: loadCavalos,
-        getAll: getAllCavalos,
-        openModal,
-        closeModal,
-        edit: openModal,
-        delete: deleteCavalo
-    };
+    return { load: loadCavalos, getAll: getAllCavalos, openModal, closeModal, edit: openModal, delete: deleteCavalo };
 })();
