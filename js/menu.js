@@ -16,9 +16,16 @@ const menuConfig = [
     },
     { 
         id: 'motorista-destaque', 
-        icon: 'fas fa-star', 
+        icon: 'fas fa-crown', 
         menuLabel: 'Motorista Destaque', 
         pageTitle: 'Top 3 Motoristas (Pódio)', 
+        active: false 
+    },
+    { 
+        id: 'top-5', 
+        icon: 'fas fa-star', 
+        menuLabel: 'Top 5', 
+        pageTitle: 'Top 5 Motoristas', 
         active: false 
     },
     { 

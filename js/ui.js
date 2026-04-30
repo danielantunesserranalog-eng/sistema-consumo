@@ -171,13 +171,17 @@ function renderTables(viagens) {
     }
 
     renderPodium();
+    renderTop5();
 }
 
+// Renderiza o Top 3 original (Motorista Destaque)
 function renderPodium() {
     const podiumContainer = document.getElementById('podiumContainer');
+    
     if (!podiumContainer) return;
     
     const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0 && d.dist > 10).slice(0, 3);
+    
     if (topDrivers.length === 0) {
         podiumContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Nenhum motorista atingiu a distância mínima no período selecionado.</div>';
         return;
@@ -210,6 +214,61 @@ function renderPodium() {
             </div>
         `;
     }).join('');
+}
+
+// Renderiza o Novo Menu do Top 5 (Forçando CSS Inline)
+function renderTop5() {
+    const t5Container = document.getElementById('top5Container');
+    if (!t5Container) return;
+
+    const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0 && d.dist > 10).slice(0, 5);
+
+    if (topDrivers.length === 0) {
+        t5Container.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px; font-size: 1.1rem;">Nenhum motorista atingiu a distância mínima.</div>';
+        return;
+    }
+
+    const icons = [
+        '<i class="fas fa-trophy" style="color: #fbbf24;"></i>',
+        '<i class="fas fa-medal" style="color: #94a3b8;"></i>',
+        '<i class="fas fa-award" style="color: #b45309;"></i>',
+        '<i class="fas fa-star" style="color: #3b82f6;"></i>',
+        '<i class="fas fa-star" style="color: #10b981;"></i>'
+    ];
+
+    const borders = [
+        'border-color: rgba(251, 191, 36, 0.5); background: linear-gradient(180deg, rgba(251,191,36,0.15) 0%, rgba(30,41,59,1) 100%);',
+        'border-color: rgba(148, 163, 184, 0.4); background: linear-gradient(180deg, rgba(148,163,184,0.1) 0%, rgba(30,41,59,1) 100%);',
+        'border-color: rgba(180, 83, 9, 0.4); background: linear-gradient(180deg, rgba(180,83,9,0.1) 0%, rgba(30,41,59,1) 100%);',
+        'border-color: rgba(59, 130, 246, 0.4); background: linear-gradient(180deg, rgba(59,130,246,0.1) 0%, rgba(30,41,59,1) 100%);',
+        'border-color: rgba(16, 185, 129, 0.4); background: linear-gradient(180deg, rgba(16,185,129,0.1) 0%, rgba(30,41,59,1) 100%);'
+    ];
+    
+    const badgeColors = ['#fbbf24', '#94a3b8', '#b45309', '#3b82f6', '#10b981'];
+
+    let htmlContent = '';
+    
+    topDrivers.forEach((d, index) => {
+        htmlContent += `
+            <div style="width: 220px; min-height: 330px; margin-top: 40px; padding: 35px 20px 20px; position: relative; border-width: 1px; border-style: solid; border-radius: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); ${borders[index]}">
+                <div style="position: absolute; top: -35px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 2rem; background: #0f172a; border: 4px solid ${badgeColors[index]}; box-shadow: 0 0 15px rgba(0,0,0,0.5);">
+                    ${icons[index]}
+                </div>
+                <div style="font-size: 1.1rem; font-weight: 800; color: #f8fafc; margin-top: 15px; margin-bottom: 5px;">${index + 1}º LUGAR</div>
+                <div style="width: 60px; height: 60px; font-size: 1.8rem; background: rgba(15,23,42,0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: ${badgeColors[index]}; margin-bottom: 15px;"><i class="fas fa-user-astronaut"></i></div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 5px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${d.name}">${d.name}</div>
+                <div style="font-size: 2.2rem; font-weight: 800; color: #10b981; margin-bottom: 15px; line-height: 1;">${d.realKML.toFixed(2)} <span style="font-size: 0.8rem; font-weight: 500; color: #94a3b8;">KM/L</span></div>
+                <div style="width: 100%; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; display: flex; justify-content: center; margin-top: auto;">
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Distância</span>
+                        <strong style="font-size: 1.1rem; color: #e2e8f0;">${Math.round(d.dist).toLocaleString('pt-BR')} km</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    t5Container.innerHTML = htmlContent;
 }
 
 // Renderiza a Aba "Indicadores Suzano"
@@ -423,6 +482,9 @@ function showEmptyDashboard() {
     
     const pContainer = document.getElementById('podiumContainer');
     if (pContainer) pContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Sem dados para gerar o pódio.</div>';
+    
+    const t5Container = document.getElementById('top5Container');
+    if (t5Container) t5Container.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Sem dados para o Top 5.</div>';
     
     if (driverChart) driverChart.dispose();
     if (truckChart) truckChart.dispose();
