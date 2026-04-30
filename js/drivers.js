@@ -1,3 +1,4 @@
+// Arquivo: js/drivers.js
 window.driversModule = (function() {
     let drivers = [];
     let editingId = null;
@@ -15,6 +16,9 @@ window.driversModule = (function() {
         const tbody = document.getElementById('drivers-list');
         if (!tbody) return;
         
+        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+
         tbody.innerHTML = drivers.map(driver => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(driver.name)}</td>
@@ -22,7 +26,7 @@ window.driversModule = (function() {
                 <td>${driver.matricula}</td>
                 <td><span class="status-badge success">${Math.round(driver.score || 0)} pts</span></td>
                 <td><span class="status-badge warning">${driver.occurrences || 0}</span></td>
-                <td style="color: #38bdf8; font-weight: 600;">${driver.avg_economy ? utils.formatNumber(driver.avg_economy) : '0.00'} km/L</td>
+                <td style="color: ${getColor(driver.avg_economy)}; font-weight: 600;">${driver.avg_economy ? utils.formatNumber(driver.avg_economy) : '0.00'} km/L</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn-primary btn-sm btn-icon" title="Editar" onclick="window.driversModule.edit(${driver.id})"><i class="fas fa-edit"></i></button>

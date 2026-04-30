@@ -22,7 +22,6 @@ window.app = (function() {
                 await window.tripsModule.load(startOfMonth, endOfMonth);
             }
             
-            // Adiciona evento de mudança ao filtro do Dashboard
             const cavaloFilter = document.getElementById('dashboard-cavalo-filter');
             if (cavaloFilter) {
                 cavaloFilter.addEventListener('change', updateDashboard);
@@ -59,8 +58,11 @@ window.app = (function() {
         let allTrips = window.tripsModule ? window.tripsModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
         const cavalos = window.cavalosModule ? window.cavalosModule.getAll() : [];
+        
+        // Pega a meta geral configurada (padrão 3.0 se não achar)
+        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
 
-        // 1. Popula o Select de Filtro se estiver vazio
         if (filterSelect && filterSelect.options.length <= 1) {
             const uniquePlacas = [...new Set(allTrips.map(t => t.placa).filter(Boolean))].sort();
             uniquePlacas.forEach(p => {
@@ -70,13 +72,11 @@ window.app = (function() {
             });
         }
 
-        // 2. Aplica o Filtro nas viagens (se houver alguma placa selecionada)
         let filteredTrips = allTrips;
         if (selectedPlaca) {
             filteredTrips = allTrips.filter(t => t.placa === selectedPlaca);
         }
 
-        // 3. Atualiza Cards Superiores
         const totalDriversEl = document.getElementById('total-drivers');
         const totalTripsEl = document.getElementById('total-trips');
         const avgEconomyEl = document.getElementById('avg-economy');
@@ -90,9 +90,9 @@ window.app = (function() {
             const sumLiters = filteredTrips.reduce((sum, t) => sum + (parseFloat(t.total_litros) || 0), 0);
             const globalAvg = sumLiters > 0 ? (sumDistance / sumLiters) : 0;
             avgEconomyEl.textContent = utils.formatNumber(globalAvg);
+            avgEconomyEl.style.color = getColor(globalAvg);
         }
 
-        // 4. Agregações para Top 5, Bottom 5 e Tabela de Motoristas
         const driverStats = {};
         filteredTrips.forEach(t => {
             const driverName = t.motorista || 'Não Identificado';
@@ -101,17 +101,14 @@ window.app = (function() {
             driverStats[driverName].liters += parseFloat(t.total_litros) || 0;
         });
 
-        // Converte para array e calcula a média real
         const driverArray = Object.keys(driverStats).map(name => {
             const stat = driverStats[name];
             const kml = stat.liters > 0 ? (stat.distance / stat.liters) : 0;
             return { name, distance: stat.distance, liters: stat.liters, kml };
         }).filter(d => d.distance > 0);
 
-        // Ordena por maior média primeiro
         driverArray.sort((a, b) => b.kml - a.kml);
 
-        // Destaque do Mês (Top 1 Geral, ignorando quem tem ocorrência no mês)
         if (topDriverEl) {
             const now = new Date();
             const eligibleForHighlight = driverArray.filter(d => {
@@ -124,27 +121,23 @@ window.app = (function() {
             topDriverEl.textContent = eligibleForHighlight.length > 0 ? eligibleForHighlight[0].name : '-';
         }
 
-        // Top 5
         const top5Tbody = document.getElementById('top5-list');
         if (top5Tbody) {
             const top5 = driverArray.slice(0, 5);
-            top5Tbody.innerHTML = top5.map(d => `<tr><td style="font-weight:500;">${d.name}</td><td style="color: #10b981; font-weight: bold;">${utils.formatNumber(d.kml)}</td><td>${utils.formatNumber(d.distance, 0)} km</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Sem dados de viagens</td></tr>';
+            top5Tbody.innerHTML = top5.map(d => `<tr><td style="font-weight:500;">${d.name}</td><td style="color: ${getColor(d.kml)}; font-weight: bold;">${utils.formatNumber(d.kml)}</td><td>${utils.formatNumber(d.distance, 0)} km</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Sem dados de viagens</td></tr>';
         }
 
-        // Bottom 5 (Menores médias, garantindo que o KM/L seja > 0 para não pegar erros)
         const bottom5Tbody = document.getElementById('bottom5-list');
         if (bottom5Tbody) {
             const bottom5 = [...driverArray].filter(d => d.kml > 0).sort((a, b) => a.kml - b.kml).slice(0, 5);
-            bottom5Tbody.innerHTML = bottom5.map(d => `<tr><td style="font-weight:500;">${d.name}</td><td style="color: #f87171; font-weight: bold;">${utils.formatNumber(d.kml)}</td><td>${utils.formatNumber(d.distance, 0)} km</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Sem dados de viagens</td></tr>';
+            bottom5Tbody.innerHTML = bottom5.map(d => `<tr><td style="font-weight:500;">${d.name}</td><td style="color: ${getColor(d.kml)}; font-weight: bold;">${utils.formatNumber(d.kml)}</td><td>${utils.formatNumber(d.distance, 0)} km</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Sem dados de viagens</td></tr>';
         }
 
-        // Tabela Completa Desempenho Motoristas
         const dashDriversTbody = document.getElementById('dash-drivers-list');
         if (dashDriversTbody) {
-            dashDriversTbody.innerHTML = driverArray.map(d => `<tr><td style="font-weight:500; color: #f8fafc;">${d.name}</td><td>${utils.formatNumber(d.distance, 0)}</td><td style="color: #38bdf8; font-weight: bold;">${utils.formatNumber(d.kml)}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
+            dashDriversTbody.innerHTML = driverArray.map(d => `<tr><td style="font-weight:500; color: #f8fafc;">${d.name}</td><td>${utils.formatNumber(d.distance, 0)}</td><td style="color: ${getColor(d.kml)}; font-weight: bold;">${utils.formatNumber(d.kml)}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
         }
 
-        // 5. Agregação e Tabela Desempenho por Cavalo / Conjunto
         const cavaloStats = {};
         filteredTrips.forEach(t => {
             const p = t.placa || 'Sem Placa';
@@ -163,7 +156,7 @@ window.app = (function() {
 
         const dashCavalosTbody = document.getElementById('dash-cavalos-list');
         if (dashCavalosTbody) {
-            dashCavalosTbody.innerHTML = cavaloArray.map(c => `<tr><td><strong style="color:#f8fafc;">${c.placa}</strong> <br><span style="font-size: 0.75rem; color: #94a3b8;">Conjunto: ${c.conjunto}</span></td><td>${utils.formatNumber(c.distance, 0)}</td><td style="color: #38bdf8; font-weight: bold;">${utils.formatNumber(c.kml)}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
+            dashCavalosTbody.innerHTML = cavaloArray.map(c => `<tr><td><strong style="color:#f8fafc;">${c.placa}</strong> <br><span style="font-size: 0.75rem; color: #94a3b8;">Conjunto: ${c.conjunto}</span></td><td>${utils.formatNumber(c.distance, 0)}</td><td style="color: ${getColor(c.kml)}; font-weight: bold;">${utils.formatNumber(c.kml)}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
         }
     }
 

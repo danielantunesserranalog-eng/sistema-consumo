@@ -1,7 +1,7 @@
+// Arquivo: js/trips.js
 window.tripsModule = (function() {
     let trips = [];
     
-    // Ferramenta de Paginação para o Histórico não travar
     let currentPageHistorico = 1;
     const itemsPerPage = 50; 
 
@@ -50,7 +50,6 @@ window.tripsModule = (function() {
         trips = allData;
         currentPageHistorico = 1; 
         
-        // Renderiza as tabelas nas páginas que precisam
         renderTrips();
         renderRecentTrips();
         renderHistorico();
@@ -62,17 +61,19 @@ window.tripsModule = (function() {
         return trips;
     }
 
-    // Tabela da página de Importar Dados
     function renderTrips() {
         const tbody = document.getElementById('trips-list');
         if (!tbody) return;
         
+        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+
         const recentTrips = trips.slice(0, 20);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(trip.motorista || '-')}</td>
                 <td>${utils.formatNumber(trip.distancia_km)}</td>
-                <td style="color: #38bdf8; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
+                <td style="color: ${getColor(parseFloat(trip.kml))}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
                 <td>${utils.formatNumber(trip.total_litros)}</td>
                 <td>${utils.formatDate(trip.inicio)}</td>
             </tr>
@@ -82,27 +83,31 @@ window.tripsModule = (function() {
         if (tripCount) tripCount.textContent = `${trips.length} registros válidos no mês`;
     }
 
-    // Tabela de Últimas Viagens (se usada em algum Dashboard)
     function renderRecentTrips() {
         const tbody = document.getElementById('recent-trips');
         if (!tbody) return;
         
+        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+
         const recentTrips = trips.slice(0, 10);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(trip.motorista || '-')}</td>
                 <td>${utils.formatNumber(trip.distancia_km)}</td>
-                <td style="color: #38bdf8; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
+                <td style="color: ${getColor(parseFloat(trip.kml))}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
                 <td>${utils.formatNumber(trip.total_litros)}</td>
                 <td>${utils.formatDate(trip.inicio)}</td>
             </tr>
         `).join('');
     }
 
-    // Tabela da Página de Histórico (Com Paginação)
     function renderHistorico() {
         const tbody = document.getElementById('historico-list');
         if (!tbody) return;
+
+        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
 
         const totalItems = trips.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
@@ -120,7 +125,7 @@ window.tripsModule = (function() {
                 <td>${utils.formatDateTime(trip.inicio)}</td>
                 <td>${utils.formatDateTime(trip.fim)}</td>
                 <td>${utils.formatNumber(trip.distancia_km)}</td>
-                <td style="color: #38bdf8; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
+                <td style="color: ${getColor(parseFloat(trip.kml))}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
                 <td>${utils.formatNumber(trip.total_litros)}</td>
             </tr>
         `).join('');
@@ -131,7 +136,6 @@ window.tripsModule = (function() {
         renderPaginationControls(totalPages);
     }
 
-    // Controles de Botão Próximo/Anterior para o Histórico
     function renderPaginationControls(totalPages) {
         const historicoPage = document.querySelector('.content-area');
         if (!historicoPage) return;
@@ -142,7 +146,6 @@ window.tripsModule = (function() {
             paginationDiv.id = 'historico-pagination';
             paginationDiv.style.cssText = 'display: flex; justify-content: center; gap: 15px; margin-top: 20px; align-items: center; padding-bottom: 20px;';
             
-            // Procura a div que envolve a tabela para anexar a paginação no final
             const tableCard = document.getElementById('historico-page') ? document.getElementById('historico-page').querySelector('.table-card') : document.querySelector('.table-card');
             if (tableCard) tableCard.appendChild(paginationDiv);
         }
@@ -186,7 +189,6 @@ window.tripsModule = (function() {
         const div = document.createElement('div'); div.textContent = text; return div.innerHTML;
     }
 
-    // Função que envia para o banco de dados em lotes
     async function importFromExcel(data) {
         const supabaseData = data.map(t => ({
             motorista: t.motorista,
@@ -270,7 +272,7 @@ window.tripsModule = (function() {
 
     function parseKML(val) {
         let parsed = parseExcelNumber(val);
-        if (parsed > 15) parsed = parsed / 100; // Ajuste para quem digita KML sem vírgula
+        if (parsed > 15) parsed = parsed / 100; 
         return parsed;
     }
 
@@ -302,7 +304,6 @@ window.tripsModule = (function() {
         return isoDate;
     }
 
-    // Leitura do Arquivo e Filtros Principais
     function handleFile(file) {
         utils.showAlert('<i class="fas fa-cog fa-spin"></i> Analisando arquivo Excel, isso pode levar alguns segundos...', 'info');
         
@@ -335,22 +336,18 @@ window.tripsModule = (function() {
                     };
                 });
 
-                // Filtragem das regras de negócio
                 const processedTrips = rawTrips.filter(trip => {
-                    // 1. Regra de Exclusão de Motoristas
                     const motoristaNome = String(trip.motorista || '').trim().toUpperCase();
                     if (!motoristaNome || 
                         motoristaNome === '-' || 
                         motoristaNome === 'BENILTON SANTOS DE OLIVEIRA' || 
                         motoristaNome === 'JULIO CESAR ALMEIDA NUNES') {
-                        return false; // Descarta a viagem
+                        return false; 
                     }
 
-                    // 2. Regra de Distância Mínima
                     const distancia = trip['Distância (Km)'];
                     if (distancia < 10) return false;
                     
-                    // 3. Regra do Transportador/Carregador
                     const transp = String(trip['Transportador'] || '').toUpperCase();
                     const carreg = String(trip['Carregador'] || '').toUpperCase();
                     const temColunaTransp = trip.Transportador !== undefined;
@@ -360,7 +357,7 @@ window.tripsModule = (function() {
                         if (!transp.includes('SERRANALOG') && !carreg.includes('SERRANALOG')) return false;
                     }
                     
-                    return true; // Se passou em tudo, mantém a viagem
+                    return true;
                 });
 
                 if (rawTrips.length > 0 && processedTrips.length === 0) {
