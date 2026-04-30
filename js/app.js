@@ -1,4 +1,3 @@
-// Arquivo: js/app.js
 const supabaseUrl = window.ENV.SUPABASE_URL;
 const supabaseKey = window.ENV.SUPABASE_KEY;
 window.supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
@@ -59,9 +58,13 @@ window.app = (function() {
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
         const cavalos = window.cavalosModule ? window.cavalosModule.getAll() : [];
         
-        // Pega a meta geral configurada (padrão 3.0 se não achar)
         const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
-        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+        
+        // CORREÇÃO: Arredondar o KML antes de aplicar a cor para bater com a tela
+        const getColor = (kml) => {
+            const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
+            return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+        };
 
         if (filterSelect && filterSelect.options.length <= 1) {
             const uniquePlacas = [...new Set(allTrips.map(t => t.placa).filter(Boolean))].sort();

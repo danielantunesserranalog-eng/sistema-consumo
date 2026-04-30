@@ -1,4 +1,3 @@
-// Arquivo: js/drivers.js
 window.driversModule = (function() {
     let drivers = [];
     let editingId = null;
@@ -17,7 +16,12 @@ window.driversModule = (function() {
         if (!tbody) return;
         
         const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
-        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+        
+        // CORREÇÃO AQUI
+        const getColor = (kml) => {
+            const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
+            return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+        };
 
         tbody.innerHTML = drivers.map(driver => `
             <tr>

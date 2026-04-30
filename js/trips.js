@@ -1,4 +1,3 @@
-// Arquivo: js/trips.js
 window.tripsModule = (function() {
     let trips = [];
     
@@ -61,19 +60,23 @@ window.tripsModule = (function() {
         return trips;
     }
 
+    // CORREÇÃO DA COR AQUI
+    function getGoalColor(kml) {
+        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
+        return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+    }
+
     function renderTrips() {
         const tbody = document.getElementById('trips-list');
         if (!tbody) return;
         
-        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
-        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
-
         const recentTrips = trips.slice(0, 20);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(trip.motorista || '-')}</td>
                 <td>${utils.formatNumber(trip.distancia_km)}</td>
-                <td style="color: ${getColor(parseFloat(trip.kml))}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
+                <td style="color: ${getGoalColor(trip.kml)}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
                 <td>${utils.formatNumber(trip.total_litros)}</td>
                 <td>${utils.formatDate(trip.inicio)}</td>
             </tr>
@@ -87,15 +90,12 @@ window.tripsModule = (function() {
         const tbody = document.getElementById('recent-trips');
         if (!tbody) return;
         
-        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
-        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
-
         const recentTrips = trips.slice(0, 10);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(trip.motorista || '-')}</td>
                 <td>${utils.formatNumber(trip.distancia_km)}</td>
-                <td style="color: ${getColor(parseFloat(trip.kml))}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
+                <td style="color: ${getGoalColor(trip.kml)}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
                 <td>${utils.formatNumber(trip.total_litros)}</td>
                 <td>${utils.formatDate(trip.inicio)}</td>
             </tr>
@@ -105,9 +105,6 @@ window.tripsModule = (function() {
     function renderHistorico() {
         const tbody = document.getElementById('historico-list');
         if (!tbody) return;
-
-        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
-        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
 
         const totalItems = trips.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
@@ -125,7 +122,7 @@ window.tripsModule = (function() {
                 <td>${utils.formatDateTime(trip.inicio)}</td>
                 <td>${utils.formatDateTime(trip.fim)}</td>
                 <td>${utils.formatNumber(trip.distancia_km)}</td>
-                <td style="color: ${getColor(parseFloat(trip.kml))}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
+                <td style="color: ${getGoalColor(trip.kml)}; font-weight: 600;">${utils.formatNumber(trip.kml)}</td>
                 <td>${utils.formatNumber(trip.total_litros)}</td>
             </tr>
         `).join('');

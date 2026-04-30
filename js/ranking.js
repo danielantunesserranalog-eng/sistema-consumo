@@ -1,11 +1,15 @@
-// Arquivo: js/ranking.js
 window.rankingModule = (function() {
     function render() {
         const drivers = window.driversModule ? window.driversModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
         
         const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
-        const getColor = (kml) => kml > 0 ? (kml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+        
+        // CORREÇÃO AQUI
+        const getColor = (kml) => {
+            const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
+            return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+        };
                  
         const now = new Date();
         const currentMonth = now.getMonth();
