@@ -1,8 +1,9 @@
-// Configuração Global Supabase
-const supabaseUrl = 'https://qhbenzrxajbeaatwxtlj.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoYmVuenJ4YWpiZWFhdHd4dGxqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MzQ2OTksImV4cCI6MjA5MjMxMDY5OX0.2ddgnsjmxqmX9xk68m9duUmzAO2n2OAvEpOgHevRwkU';
+// Configuração Global Supabase puxando do js/config.js
+const supabaseUrl = window.ENV.SUPABASE_URL;
+const supabaseKey = window.ENV.SUPABASE_KEY;
 window.supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
+// Main application
 window.app = (function() {
     let currentPage = 'dashboard';
 
@@ -10,14 +11,26 @@ window.app = (function() {
         setupNavigation();
         
         // Carrega sequencialmente para garantir as dependências
-        if (window.settingsModule) await window.settingsModule.load();
-        if (window.cavalosModule) await window.cavalosModule.load();
-        if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
-        if (window.tripsModule) await window.tripsModule.load();
-        if (window.driversModule) await window.driversModule.load();
+        if (window.settingsModule) {
+            await window.settingsModule.load();
+        }
+        if (window.cavalosModule) {
+            await window.cavalosModule.load();
+        }
+        if (window.ocorrenciasModule) {
+            await window.ocorrenciasModule.load();
+        }
+        if (window.tripsModule) {
+            await window.tripsModule.load();
+            window.tripsModule.renderRecentTrips();
+        }
+        if (window.driversModule) {
+            await window.driversModule.load();
+        }
 
-        if (window.tripsModule) window.tripsModule.renderRecentTrips();
-        if (window.rankingModule) window.rankingModule.render();
+        if (window.rankingModule) {
+            window.rankingModule.render();
+        }
 
         updateDashboard();
     }
@@ -51,11 +64,20 @@ window.app = (function() {
                     settings: 'Configurações'
                 };
 
-                if (pageTitle) pageTitle.textContent = titles[page] || 'Dashboard';
+                if (pageTitle) {
+                    pageTitle.textContent = titles[page] || 'Dashboard';
+                }
 
-                if (page === 'ranking' && window.rankingModule) window.rankingModule.render();
-                if (page === 'historico' && window.tripsModule) window.tripsModule.renderHistorico();
-                if (page === 'dashboard') updateDashboard();
+                // Refresh data when changing pages
+                if (page === 'ranking' && window.rankingModule) {
+                    window.rankingModule.render();
+                }
+                if (page === 'historico' && window.tripsModule) {
+                    window.tripsModule.renderHistorico();
+                }
+                if (page === 'dashboard') {
+                    updateDashboard();
+                }
             });
         });
     }
@@ -74,7 +96,7 @@ window.app = (function() {
         if (totalTrips) totalTrips.textContent = trips.length;
 
         if (avgEconomy) {
-            const avg = trips.reduce((sum, t) => sum + (parseFloat(t['kml']) || 0), 0) / (trips.length || 1);
+            const avg = trips.reduce((sum, t) => sum + (parseFloat(t.kml) || 0), 0) / (trips.length || 1);
             avgEconomy.textContent = utils.formatNumber(avg);
         }
 
@@ -83,8 +105,10 @@ window.app = (function() {
             const currentMonth = now.getMonth();
             const currentYear = now.getFullYear();
             
+            // Filtro igual ao do Hall da Fama para o Dashboard
             const eligibleDrivers = drivers.filter(driver => {
                 if (driver.occurrences > 0) return false;
+                
                 const hasOcorrenciaMes = ocorrencias.some(oc => {
                     if (oc.motorista === driver.name) {
                         const ocDate = new Date(oc.data + 'T00:00:00');
@@ -92,6 +116,7 @@ window.app = (function() {
                     }
                     return false;
                 });
+                
                 return !hasOcorrenciaMes;
             });
             
@@ -102,5 +127,7 @@ window.app = (function() {
 
     document.addEventListener('DOMContentLoaded', init);
 
-    return { updateDashboard };
+    return {
+        updateDashboard
+    };
 })();
