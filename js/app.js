@@ -10,6 +10,11 @@ window.app = (function() {
     async function init() {
         setupNavigation();
         
+        // Define as datas do primeiro e último dia do mês atual
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+        
         // Carrega sequencialmente para garantir as dependências
         if (window.settingsModule) {
             await window.settingsModule.load();
@@ -21,17 +26,17 @@ window.app = (function() {
             await window.ocorrenciasModule.load();
         }
         if (window.tripsModule) {
-            await window.tripsModule.load();
+            // Passa as datas do mês atual para o módulo de viagens limitar a busca
+            await window.tripsModule.load(startOfMonth, endOfMonth);
             window.tripsModule.renderRecentTrips();
         }
         if (window.driversModule) {
             await window.driversModule.load();
         }
-
         if (window.rankingModule) {
             window.rankingModule.render();
         }
-
+        
         updateDashboard();
     }
 
@@ -44,15 +49,15 @@ window.app = (function() {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const page = link.dataset.page;
-
+                
                 navLinks.forEach(l => l.classList.remove('active'));
                 link.classList.add('active');
-
+                
                 pages.forEach(p => p.classList.remove('active'));
                 document.getElementById(`${page}-page`).classList.add('active');
-
+                
                 currentPage = page;
-
+                
                 const titles = {
                     dashboard: 'Dashboard',
                     cavalos: 'Cavalos',
@@ -63,11 +68,11 @@ window.app = (function() {
                     ranking: 'Hall da Fama',
                     settings: 'Configurações'
                 };
-
+                
                 if (pageTitle) {
                     pageTitle.textContent = titles[page] || 'Dashboard';
                 }
-
+                
                 // Refresh data when changing pages
                 if (page === 'ranking' && window.rankingModule) {
                     window.rankingModule.render();
@@ -86,20 +91,20 @@ window.app = (function() {
         const drivers = window.driversModule ? window.driversModule.getAll() : [];
         const trips = window.tripsModule ? window.tripsModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
-
+        
         const totalDrivers = document.getElementById('total-drivers');
         const totalTrips = document.getElementById('total-trips');
         const avgEconomy = document.getElementById('avg-economy');
         const topDriver = document.getElementById('top-driver');
-
+        
         if (totalDrivers) totalDrivers.textContent = drivers.length;
         if (totalTrips) totalTrips.textContent = trips.length;
-
+        
         if (avgEconomy) {
             const avg = trips.reduce((sum, t) => sum + (parseFloat(t.kml) || 0), 0) / (trips.length || 1);
             avgEconomy.textContent = utils.formatNumber(avg);
         }
-
+        
         if (topDriver) {
             const now = new Date();
             const currentMonth = now.getMonth();

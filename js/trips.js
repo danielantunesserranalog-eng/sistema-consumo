@@ -1,11 +1,49 @@
 window.tripsModule = (function() {
     let trips = [];
 
-    async function loadTrips() {
-        const { data, error } = await window.supabaseClient.from('viagens').select('*').order('created_at', { ascending: false });
-        if (!error && data) {
-            trips = data;
+    async function loadTrips(startDate = null, endDate = null) {
+        let allData = [];
+        let hasMore = true;
+        let page = 0;
+        const pageSize = 1000; // Limite máximo que o Supabase aceita por requisição
+
+        // Loop para buscar de 1000 em 1000 até acabar
+        while (hasMore) {
+            let query = window.supabaseClient
+                .from('viagens')
+                .select('*');
+
+            if (startDate && endDate) {
+                query = query.gte('inicio', startDate).lte('inicio', endDate);
+            }
+
+            const from = page * pageSize;
+            const to = from + pageSize - 1;
+
+            const { data, error } = await query
+                .range(from, to)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Erro ao carregar viagens:", error);
+                break; // Sai do loop se der erro
+            }
+
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+                page++;
+                
+                // Se retornou menos de 1000, significa que era a última página
+                if (data.length < pageSize) {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false; // Não tem mais dados
+            }
         }
+
+        trips = allData;
+        
         renderTrips();
         renderHistorico();
         return trips;
@@ -14,6 +52,7 @@ window.tripsModule = (function() {
     function renderTrips() {
         const tbody = document.getElementById('trips-list');
         if (!tbody) return;
+        
         const recentTrips = trips.slice(0, 10);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
@@ -24,9 +63,9 @@ window.tripsModule = (function() {
                 <td>${utils.formatDate(trip.inicio)}</td>
             </tr>
         `).join('');
-
+        
         const tripCount = document.getElementById('trip-count');
-        if (tripCount) tripCount.textContent = `${trips.length} registros no banco`;
+        if (tripCount) tripCount.textContent = `${trips.length} registros no banco (Neste Mês)`;
     }
 
     function renderRecentTrips() {
@@ -57,8 +96,9 @@ window.tripsModule = (function() {
                 <td>${utils.formatNumber(trip.total_litros)}</td>
             </tr>
         `).join('');
+        
         const countBadge = document.getElementById('historico-count');
-        if (countBadge) countBadge.textContent = `${trips.length} registros globais`;
+        if (countBadge) countBadge.textContent = `${trips.length} registros globais (Neste Mês)`;
     }
 
     function escapeHtml(text) {
@@ -67,7 +107,6 @@ window.tripsModule = (function() {
     }
 
     async function importFromExcel(data) {
-        // Conversão para o formato Supabase
         const supabaseData = data.map(t => ({
             motorista: t.motorista,
             distancia_km: t['Distância (Km)'],
@@ -76,17 +115,30 @@ window.tripsModule = (function() {
             inicio: t.inicio,
             fim: t.fim
         }));
-
+        
         utils.showAlert(`Importando ${supabaseData.length} viagens para o banco...`, 'info');
         
-        // Supabase permite insert em lote (array)
-        const { error } = await window.supabaseClient.from('viagens').insert(supabaseData);
-        
-        if (error) {
-            utils.showAlert('Erro na importação para o banco de dados.', 'error');
-            console.error(error);
+        const batchSize = 500;
+        let hasError = false;
+
+        for (let i = 0; i < supabaseData.length; i += batchSize) {
+            const batch = supabaseData.slice(i, i + batchSize);
+            const { error } = await window.supabaseClient.from('viagens').insert(batch);
+            
+            if (error) {
+                console.error(error);
+                hasError = true;
+            }
+        }
+
+        if (hasError) {
+            utils.showAlert('Ocorreu um erro ao importar alguns lotes para o banco de dados.', 'error');
         } else {
-            await loadTrips();
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+            
+            await loadTrips(startOfMonth, endOfMonth);
             renderRecentTrips();
             updateDriverStats();
             utils.showAlert(`${supabaseData.length} viagens salvas no banco com sucesso!`, 'success');
@@ -100,13 +152,13 @@ window.tripsModule = (function() {
     }
 
     function getAllTrips() { return trips; }
+    
     function getDriverTrips(driverName) { return trips.filter(t => t.motorista === driverName); }
 
     function setupUpload() {
         const uploadArea = document.getElementById('uploadArea');
         const excelInput = document.getElementById('excel-input');
         if (!uploadArea || !excelInput) return;
-
         uploadArea.addEventListener('click', () => excelInput.click());
         uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#3b82f6'; });
         uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = '#475569'; });
@@ -175,13 +227,14 @@ window.tripsModule = (function() {
             const workbook = XLSX.read(data, { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: false });
-
+            
             let rawTrips = jsonData.map(row => {
                 const kmlValue = row['Km/L'] || row['Km/l'] || row['KM/L'] || row['km/l'] || 0;
                 const distanciaValue = row['Distância (Km)'] || row['Distancia (Km)'] || row['distância (km)'] || 0;
                 const litrosValue = row['Total Litros Consumido'] || row['total litros consumido'] || 0;
                 const dataInicioRaw = row.Início || row.inicio || row['Data Inicial'] || row['Dt Início'];
                 const dataFimRaw = row.Fim || row.fim || row['Data Fim'] || row['Dt Fim Descar Fáb'];
+                
                 return {
                     motorista: row.Motorista || row.motorista,
                     'Distância (Km)': parseExcelNumber(distanciaValue),
@@ -197,6 +250,7 @@ window.tripsModule = (function() {
             const processedTrips = rawTrips.filter(trip => {
                 const distancia = trip['Distância (Km)'];
                 if (distancia < 10) return false;
+                
                 const transp = String(trip['Transportador'] || '').toUpperCase();
                 const carreg = String(trip['Carregador'] || '').toUpperCase();
                 const temColunaTransp = trip.Transportador !== undefined;
@@ -205,12 +259,14 @@ window.tripsModule = (function() {
                 if (temColunaTransp || temColunaCarreg) {
                     if (!transp.includes('SERRANALOG') && !carreg.includes('SERRANALOG')) return false;
                 }
+                
                 return true;
             });
 
             if (rawTrips.length > 0 && processedTrips.length === 0) {
-                utils.showAlert('Nenhuma viagem válida encontrada. Verifique se as distâncias são >= 10 km.', 'warning');
+                utils.showAlert('Nenhuma viagem válida encontrada. Verifique se as distâncias são >= 10 km e a transportadora.', 'warning');
             }
+            
             importFromExcel(processedTrips);
         };
         reader.readAsArrayBuffer(file);
@@ -218,5 +274,13 @@ window.tripsModule = (function() {
 
     document.addEventListener('DOMContentLoaded', setupUpload);
 
-    return { load: loadTrips, getAll: getAllTrips, getDriverTrips, importFromExcel, updateDriverStats, renderRecentTrips, renderHistorico };
+    return { 
+        load: loadTrips, 
+        getAll: getAllTrips, 
+        getDriverTrips, 
+        importFromExcel, 
+        updateDriverStats, 
+        renderRecentTrips, 
+        renderHistorico 
+    };
 })();
