@@ -1,12 +1,11 @@
 window.tripsModule = (function() {
     let trips = [];
     
-    // Ferramenta Anti-Travamento 1: Controle de Paginação na tela
+    // Ferramenta de Paginação para o Histórico não travar
     let currentPageHistorico = 1;
-    const itemsPerPage = 50; // Mostra apenas 50 por vez para o HTML não congelar
+    const itemsPerPage = 50; 
 
     async function loadTrips(startDate = null, endDate = null) {
-        // Ferramenta Anti-Travamento 2: Feedback visual durante busca pesada
         utils.showAlert('<i class="fas fa-circle-notch fa-spin"></i> Sincronizando base de dados. Aguarde...', 'info');
 
         let allData = [];
@@ -49,9 +48,11 @@ window.tripsModule = (function() {
         }
 
         trips = allData;
-        currentPageHistorico = 1; // Reseta a página ao carregar novos dados
+        currentPageHistorico = 1; 
         
+        // Renderiza as tabelas nas páginas que precisam
         renderTrips();
+        renderRecentTrips();
         renderHistorico();
         
         if (trips.length > 0) {
@@ -61,12 +62,12 @@ window.tripsModule = (function() {
         return trips;
     }
 
+    // Tabela da página de Importar Dados
     function renderTrips() {
         const tbody = document.getElementById('trips-list');
         if (!tbody) return;
         
-        // Na tela principal, renderizamos só as 10 mais recentes (seguro para o navegador)
-        const recentTrips = trips.slice(0, 10);
+        const recentTrips = trips.slice(0, 20);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(trip.motorista || '-')}</td>
@@ -78,13 +79,15 @@ window.tripsModule = (function() {
         `).join('');
         
         const tripCount = document.getElementById('trip-count');
-        if (tripCount) tripCount.textContent = `${trips.length} registros no banco (Neste Mês)`;
+        if (tripCount) tripCount.textContent = `${trips.length} registros válidos no mês`;
     }
 
+    // Tabela de Últimas Viagens (se usada em algum Dashboard)
     function renderRecentTrips() {
         const tbody = document.getElementById('recent-trips');
         if (!tbody) return;
-        const recentTrips = trips.slice(0, 5);
+        
+        const recentTrips = trips.slice(0, 10);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(trip.motorista || '-')}</td>
@@ -96,11 +99,11 @@ window.tripsModule = (function() {
         `).join('');
     }
 
+    // Tabela da Página de Histórico (Com Paginação)
     function renderHistorico() {
         const tbody = document.getElementById('historico-list');
         if (!tbody) return;
 
-        // Lógica de Paginação Front-end (Para não travar com milhares de linhas)
         const totalItems = trips.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
@@ -128,9 +131,9 @@ window.tripsModule = (function() {
         renderPaginationControls(totalPages);
     }
 
-    // Ferramenta Anti-Travamento 3: Botões de navegação gerados dinamicamente
+    // Controles de Botão Próximo/Anterior para o Histórico
     function renderPaginationControls(totalPages) {
-        const historicoPage = document.getElementById('historico-page');
+        const historicoPage = document.querySelector('.content-area');
         if (!historicoPage) return;
 
         let paginationDiv = document.getElementById('historico-pagination');
@@ -139,7 +142,8 @@ window.tripsModule = (function() {
             paginationDiv.id = 'historico-pagination';
             paginationDiv.style.cssText = 'display: flex; justify-content: center; gap: 15px; margin-top: 20px; align-items: center; padding-bottom: 20px;';
             
-            const tableCard = historicoPage.querySelector('.table-card');
+            // Procura a div que envolve a tabela para anexar a paginação no final
+            const tableCard = document.getElementById('historico-page') ? document.getElementById('historico-page').querySelector('.table-card') : document.querySelector('.table-card');
             if (tableCard) tableCard.appendChild(paginationDiv);
         }
 
@@ -182,9 +186,11 @@ window.tripsModule = (function() {
         const div = document.createElement('div'); div.textContent = text; return div.innerHTML;
     }
 
+    // Função que envia para o banco de dados em lotes
     async function importFromExcel(data) {
         const supabaseData = data.map(t => ({
             motorista: t.motorista,
+            placa: t.placa,
             distancia_km: t['Distância (Km)'],
             kml: t['Km/l'],
             total_litros: t['Total Litros Consumido'],
@@ -215,9 +221,7 @@ window.tripsModule = (function() {
             const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
             
             await loadTrips(startOfMonth, endOfMonth);
-            renderRecentTrips();
             updateDriverStats();
-            // Aviso limpo na tela
             utils.showAlert(`<i class="fas fa-check-double"></i> ${supabaseData.length} viagens importadas com sucesso!`, 'success');
         }
     }
@@ -266,7 +270,7 @@ window.tripsModule = (function() {
 
     function parseKML(val) {
         let parsed = parseExcelNumber(val);
-        if (parsed > 15) parsed = parsed / 100;
+        if (parsed > 15) parsed = parsed / 100; // Ajuste para quem digita KML sem vírgula
         return parsed;
     }
 
@@ -298,8 +302,8 @@ window.tripsModule = (function() {
         return isoDate;
     }
 
+    // Leitura do Arquivo e Filtros Principais
     function handleFile(file) {
-        // Ferramenta Anti-Travamento 4: Dá tempo para o navegador mostrar o aviso antes de travar lendo o arquivo grande
         utils.showAlert('<i class="fas fa-cog fa-spin"></i> Analisando arquivo Excel, isso pode levar alguns segundos...', 'info');
         
         setTimeout(() => {
@@ -316,9 +320,11 @@ window.tripsModule = (function() {
                     const litrosValue = row['Total Litros Consumido'] || row['total litros consumido'] || 0;
                     const dataInicioRaw = row.Início || row.inicio || row['Data Inicial'] || row['Dt Início'];
                     const dataFimRaw = row.Fim || row.fim || row['Data Fim'] || row['Dt Fim Descar Fáb'];
-                    
+                    const placaValue = row.Placa || row.placa || row['Veículo'] || row['Equipamento'] || row.Cavalo || row.cavalo || row.Frota || null;
+
                     return {
                         motorista: row.Motorista || row.motorista,
+                        placa: placaValue,
                         'Distância (Km)': parseExcelNumber(distanciaValue),
                         'Km/l': parseKML(kmlValue),
                         'Total Litros Consumido': parseExcelNumber(litrosValue),
@@ -329,10 +335,22 @@ window.tripsModule = (function() {
                     };
                 });
 
+                // Filtragem das regras de negócio
                 const processedTrips = rawTrips.filter(trip => {
+                    // 1. Regra de Exclusão de Motoristas
+                    const motoristaNome = String(trip.motorista || '').trim().toUpperCase();
+                    if (!motoristaNome || 
+                        motoristaNome === '-' || 
+                        motoristaNome === 'BENILTON SANTOS DE OLIVEIRA' || 
+                        motoristaNome === 'JULIO CESAR ALMEIDA NUNES') {
+                        return false; // Descarta a viagem
+                    }
+
+                    // 2. Regra de Distância Mínima
                     const distancia = trip['Distância (Km)'];
                     if (distancia < 10) return false;
                     
+                    // 3. Regra do Transportador/Carregador
                     const transp = String(trip['Transportador'] || '').toUpperCase();
                     const carreg = String(trip['Carregador'] || '').toUpperCase();
                     const temColunaTransp = trip.Transportador !== undefined;
@@ -342,17 +360,17 @@ window.tripsModule = (function() {
                         if (!transp.includes('SERRANALOG') && !carreg.includes('SERRANALOG')) return false;
                     }
                     
-                    return true;
+                    return true; // Se passou em tudo, mantém a viagem
                 });
 
                 if (rawTrips.length > 0 && processedTrips.length === 0) {
-                    utils.showAlert('Nenhuma viagem válida encontrada. Verifique se as distâncias são >= 10 km e a transportadora.', 'warning');
+                    utils.showAlert('Nenhuma viagem válida encontrada. Verifique se as regras batem (Motoristas, Transportadora e Distância).', 'warning');
+                } else if (processedTrips.length > 0) {
+                    importFromExcel(processedTrips);
                 }
-                
-                importFromExcel(processedTrips);
             };
             reader.readAsArrayBuffer(file);
-        }, 300); // 300ms de "respiro" para a tela atualizar
+        }, 300); 
     }
 
     document.addEventListener('DOMContentLoaded', setupUpload);
@@ -363,7 +381,8 @@ window.tripsModule = (function() {
         getDriverTrips, 
         importFromExcel, 
         updateDriverStats, 
-        renderRecentTrips, 
+        renderTrips,
+        renderRecentTrips,
         renderHistorico 
     };
 })();
