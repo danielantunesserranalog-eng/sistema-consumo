@@ -3,454 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motorista Padrão - Sistema de Gestão de Frotas</title>
+    <title>Dashboard - Sistema de Gestão de Frotas</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="logo-area">
-                <i class="fas fa-tachometer-alt" style="color: #3b82f6; font-size: 24px; margin-right: 10px;"></i>
-                <span style="color: #f8fafc; font-weight: 700; font-size: 1.2rem;">Motorista Padrão</span>
-            </div>
-            <nav class="nav-menu">
-                <a href="#" class="nav-item active" data-page="dashboard">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="#" class="nav-item" data-page="cavalos">
-                    <i class="fas fa-truck-moving"></i>
-                    <span>Cavalos</span>
-                </a>
-                <a href="#" class="nav-item" data-page="drivers">
-                    <i class="fas fa-users"></i>
-                    <span>Motoristas</span>
-                </a>
-                <a href="#" class="nav-item" data-page="ocorrencias">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>Ocorrências</span>
-                </a>
-                <a href="#" class="nav-item" data-page="import">
-                    <i class="fas fa-upload"></i>
-                    <span>Importar Dados</span>
-                </a>
-                <a href="#" class="nav-item" data-page="historico">
-                    <i class="fas fa-history"></i>
-                    <span>Histórico</span>
-                </a>
-                <a href="#" class="nav-item" data-page="ranking">
-                    <i class="fas fa-trophy"></i>
-                    <span>Hall da Fama</span>
-                </a>
-                <a href="#" class="nav-item" data-page="settings">
-                    <i class="fas fa-cog"></i>
-                    <span>Configurações</span>
-                </a>
-            </nav>
-            <div class="sidebar-footer">
-                Sistema de Frotas v2.0 (Online)
-            </div>
-        </aside>
-        <!-- Main Content -->
+        <app-sidebar></app-sidebar>
         <main class="main-content">
-            <div class="top-bar">
-                <div class="header-content">
-                    <div class="header-left">
-                        <i class="fas fa-bars menu-toggle"></i>
-                        <h1 id="pageTitle">Dashboard</h1>
-                    </div>
-                    <div class="user-info">
-                        <div class="status-indicator"></div>
-                        <span>Admin MP</span>
-                        <i class="fas fa-user-circle"></i>
-                    </div>
-                </div>
-            </div>
+            <app-topbar title="Dashboard"></app-topbar>
             <div class="content-area">
-                <!-- Dashboard Page -->
-                <div id="dashboard-page" class="page active">
-                    <div class="stats-grid">
-                        <div class="stat-card highlight-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>Total de Motoristas</h3>
-                                <p id="total-drivers">0</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
-                                <i class="fas fa-truck"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>Total de Viagens</h3>
-                                <p id="total-trips">0</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);">
-                                <i class="fas fa-gas-pump"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>Média Geral KM/L</h3>
-                                <p id="avg-economy">0.00</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.2);">
-                                <i class="fas fa-crown"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>Motorista Destaque</h3>
-                                <p id="top-driver" style="font-size: 1.2rem;">-</p>
-                            </div>
+                <div class="stats-grid">
+                    <div class="stat-card highlight-card">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <h3>Total de Motoristas</h3><p id="total-drivers">0</p>
                         </div>
                     </div>
-                    <div class="table-card full-width">
-                        <h3><i class="fas fa-history"></i> Últimas Viagens</h3>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Motorista</th>
-                                        <th>Distância (Km)</th>
-                                        <th>KM/L</th>
-                                        <th>Litros</th>
-                                        <th>Data Início</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="recent-trips"></tbody>
-                            </table>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);"><i class="fas fa-truck"></i></div>
+                        <div class="stat-info">
+                            <h3>Total de Viagens</h3><p id="total-trips">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);"><i class="fas fa-gas-pump"></i></div>
+                        <div class="stat-info">
+                            <h3>Média Geral KM/L</h3><p id="avg-economy">0.00</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.2);"><i class="fas fa-crown"></i></div>
+                        <div class="stat-info">
+                            <h3>Motorista Destaque</h3><p id="top-driver" style="font-size: 1.2rem;">-</p>
                         </div>
                     </div>
                 </div>
-                <!-- Cavalos Page -->
-                <div id="cavalos-page" class="page">
-                    <div class="table-card full-width">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="margin: 0;"><i class="fas fa-truck-moving"></i> Cadastro de Cavalos</h3>
-                            <button class="btn-primary" onclick="window.cavalosModule.openModal()">
-                                <i class="fas fa-plus"></i> Novo Cavalo
-                            </button>
-                        </div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Conjunto</th>
-                                        <th>Placa</th>
-                                        <th>Cor</th>
-                                        <th>Frota</th>
-                                        <th>Carretas vinculadas</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="cavalos-list"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <!-- Drivers Page -->
-                <div id="drivers-page" class="page">
-                    <div class="table-card full-width">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="margin: 0;"><i class="fas fa-address-card"></i> Cadastro de Motoristas</h3>
-                            <button class="btn-primary" onclick="window.driversModule.openModal()">
-                                <i class="fas fa-plus"></i> Novo Motorista
-                            </button>
-                        </div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Nome</th>
-                                        <th>CPF</th>
-                                        <th>Matrícula</th>
-                                        <th>Pontuação</th>
-                                        <th>Ocorrências</th>
-                                        <th>Média KM/L</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="drivers-list"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <!-- Ocorrencias Page -->
-                <div id="ocorrencias-page" class="page">
-                    <div class="table-card full-width">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="margin: 0;"><i class="fas fa-exclamation-triangle"></i> Registro de Ocorrências</h3>
-                            <button class="btn-primary" onclick="window.ocorrenciasModule.openModal()">
-                                <i class="fas fa-plus"></i> Nova Ocorrência
-                            </button>
-                        </div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Data / Hora</th>
-                                        <th>Motorista</th>
-                                        <th>Placa do Cavalo</th>
-                                        <th>Local</th>
-                                        <th>Descrição</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="ocorrencias-list"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <!-- Import Page -->
-                <div id="import-page" class="page">
-                    <div class="table-card full-width" style="margin-bottom: 24px;">
-                        <h3><i class="fas fa-file-excel"></i> Importar Dados de Viagens</h3>
-                        <div class="upload-area" id="uploadArea">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <h2>Clique ou arraste o arquivo Excel aqui</h2>
-                            <p style="color: #64748b; margin-top: 8px;">Suporte para arquivos .xlsx e .xls</p>
-                            <input type="file" id="excel-input" accept=".xlsx, .xls" style="display: none;">
-                        </div>
-                        <div id="import-status"></div>
-                    </div>
-                    <div class="table-card full-width">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="margin: 0;"><i class="fas fa-list"></i> Resumo da Última Importação</h3>
-                            <span class="status-badge success" id="trip-count">0 registros válidos</span>
-                        </div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Motorista</th>
-                                        <th>Distância (Km)</th>
-                                        <th>KM/L</th>
-                                        <th>Litros</th>
-                                        <th>Início</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="trips-list"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <!-- Historico Page -->
-                <div id="historico-page" class="page">
-                    <div class="table-card full-width">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="margin: 0;"><i class="fas fa-history"></i> Histórico Completo de Viagens</h3>
-                            <span class="status-badge success" id="historico-count">0 registros globais</span>
-                        </div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Motorista</th>
-                                        <th>Início (Data/Hora)</th>
-                                        <th>Fim (Data/Hora)</th>
-                                        <th>Distância (Km)</th>
-                                        <th>KM/L</th>
-                                        <th>Total Litros</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="historico-list"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <!-- Ranking Page -->
-                <div id="ranking-page" class="page">
-                    <div class="table-card full-width" style="background: linear-gradient(to bottom, #1e293b, #0f172a);">
-                        <h3 style="justify-content: center; font-size: 1.5rem; margin-bottom: 30px; color: #fbbf24;">
-                            <i class="fas fa-trophy"></i> Hall da Fama
-                        </h3>
-                        <div id="ranking-list"></div>
-                    </div>
-                </div>
-                <!-- Settings Page -->
-                <div id="settings-page" class="page">
-                    <div class="config-card">
-                        <h2 style="display: flex; align-items: center; gap: 10px;"><i class="fas fa-sliders-h" style="color: #3b82f6;"></i> Configurações do Sistema</h2>
-                        <p style="margin-bottom: 24px;">Ajuste os parâmetros de pontuação e comportamento do sistema.</p>
-                        
-                        <div class="form-group">
-                            <label>Pontos por KM/L (média)</label>
-                            <input type="number" id="points-per-economy" step="1" class="form-control filter-input" style="width: 100%;">
-                        </div>
-                        <div class="form-group" style="margin-top: 20px;">
-                            <label>Redução de pontos por ocorrência</label>
-                            <input type="number" id="penalty-per-occurrence" step="10" class="form-control filter-input" style="width: 100%;">
-                        </div>
-                        <div class="form-group" style="margin-top: 20px; margin-bottom: 30px;">
-                            <label>Reset mensal de pontuação</label>
-                            <select id="reset-score" class="form-control filter-input" style="width: 100%;">
-                                <option value="false">Não resetar</option>
-                                <option value="true">Resetar todo mês</option>
-                            </select>
-                        </div>
-                        <button class="btn-primary" onclick="window.settingsModule.save()">
-                            <i class="fas fa-save"></i> Salvar Configurações
-                        </button>
-                        <!-- DANGER ZONE -->
-                        <div class="danger-zone" style="margin-top: 40px; padding: 24px; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 16px; background-color: rgba(239, 68, 68, 0.05);">
-                            <h3 style="color: #f87171; margin-bottom: 8px; font-size: 1.2rem;"><i class="fas fa-exclamation-triangle"></i> Zona de Perigo</h3>
-                            <p style="color: #fca5a5; margin-bottom: 16px; font-size: 0.9rem; line-height: 1.5;">
-                                Esta ação apagará definitivamente <strong>todas as viagens importadas</strong> do banco de dados. Os cadastros de Motoristas, Cavalos e Ocorrências serão mantidos intactos.
-                            </p>
-                            <button class="btn-danger" onclick="window.settingsModule.clearAllData()">
-                                <i class="fas fa-trash-alt"></i> Apagar Todas as Viagens
-                            </button>
-                        </div>
+                <div class="table-card full-width">
+                    <h3><i class="fas fa-history"></i> Últimas Viagens</h3>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr><th>Motorista</th><th>Distância (Km)</th><th>KM/L</th><th>Litros</th><th>Data Início</th></tr>
+                            </thead>
+                            <tbody id="recent-trips"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </main>
     </div>
-
-    <!-- Modais -->
-    <div id="cavalo-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="cavalo-modal-title" style="color: #f8fafc;">Novo Cavalo</h2>
-                <button class="modal-close" onclick="window.cavalosModule.closeModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="cavalo-form">
-                    <div class="form-group">
-                        <label>Conjunto</label>
-                        <input type="text" id="cavalo-conjunto" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Placa</label>
-                        <input type="text" id="cavalo-placa" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Cor</label>
-                        <input type="text" id="cavalo-cor" class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Frota</label>
-                        <input type="text" id="cavalo-frota" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Carreta 1</label>
-                        <input type="text" id="cavalo-carreta1" class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Carreta 2</label>
-                        <input type="text" id="cavalo-carreta2" class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Carreta 3</label>
-                        <input type="text" id="cavalo-carreta3" class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="modal-footer" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
-                        <button type="button" class="btn-secondary" onclick="window.cavalosModule.closeModal()">Cancelar</button>
-                        <button type="submit" class="btn-primary">Salvar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="ocorrencia-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="ocorrencia-modal-title" style="color: #f8fafc;">Nova Ocorrência</h2>
-                <button class="modal-close" onclick="window.ocorrenciasModule.closeModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="ocorrencia-form">
-                    <div class="form-group">
-                        <label>Data</label>
-                        <input type="date" id="oc-data" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Hora</label>
-                        <input type="time" id="oc-hora" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Motorista (Opcional)</label>
-                        <select id="oc-motorista" class="form-control filter-input" style="width: 100%;">
-                            <option value="">Selecione o motorista...</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Placa (Cavalo)</label>
-                        <select id="oc-placa" required class="form-control filter-input" style="width: 100%;">
-                            <option value="">Selecione a placa...</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Local</label>
-                        <input type="text" id="oc-local" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Descrição dos Fatos</label>
-                        <textarea id="oc-descricao" required class="form-control filter-input" style="width: 100%; height: 100px; padding-top: 10px; resize: vertical;"></textarea>
-                    </div>
-                    <div class="modal-footer" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
-                        <button type="button" class="btn-secondary" onclick="window.ocorrenciasModule.closeModal()">Cancelar</button>
-                        <button type="submit" class="btn-primary">Salvar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="driver-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-title" style="color: #f8fafc;">Novo Motorista</h2>
-                <button class="modal-close" onclick="window.driversModule.closeModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="driver-form">
-                    <div class="form-group">
-                        <label>Nome Completo</label>
-                        <input type="text" id="driver-name" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>CPF</label>
-                        <input type="text" id="driver-cpf" required class="form-control filter-input" style="width: 100%;" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Matrícula</label>
-                        <input type="text" id="driver-matricula" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Meta Mensal (KM/L)</label>
-                        <input type="number" id="driver-goal" step="0.1" class="form-control filter-input" style="width: 100%;" value="3.0">
-                    </div>
-                    <div class="modal-footer" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
-                        <button type="button" class="btn-secondary" onclick="window.driversModule.closeModal()">Cancelar</button>
-                        <button type="submit" class="btn-primary">Salvar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    
-    <!-- Scripts base e configurações (a ordem importa) -->
-    <script src="js/utils.js"></script>
-    <script src="js/config.js"></script>
-    
-    <!-- Módulos da aplicação -->
-    <script src="js/app.js"></script>
-    <script src="js/settings.js"></script>
-    <script src="js/trips.js"></script>
-    <script src="js/drivers.js"></script>
-    <script src="js/cavalos.js"></script>
-    <script src="js/ocorrencias.js"></script>
-    <script src="js/ranking.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/utils.js"></script><script src="js/config.js"></script><script src="js/app.js"></script>
+    <script src="js/settings.js"></script><script src="js/trips.js"></script><script src="js/drivers.js"></script>
+    <script src="js/cavalos.js"></script><script src="js/ocorrencias.js"></script><script src="js/ranking.js"></script>
 </body>
 </html>

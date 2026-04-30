@@ -1,90 +1,50 @@
-// Configuração Global Supabase puxando do js/config.js
+// Arquivo: js/app.js
 const supabaseUrl = window.ENV.SUPABASE_URL;
 const supabaseKey = window.ENV.SUPABASE_KEY;
 window.supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-// Main application
 window.app = (function() {
-    let currentPage = 'dashboard';
-
     async function init() {
-        setupNavigation();
-        
-        // Define as datas do primeiro e último dia do mês atual
+        const currentPath = window.location.pathname.toLowerCase();
+        const isPage = (name) => currentPath.includes(name) || (name === 'index' && (currentPath.endsWith('/') || currentPath.endsWith('index.html')));
+
+        // Carrega configurações globais necessárias em todas as páginas
+        if (window.settingsModule) await window.settingsModule.load();
+
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-        
-        // Carrega sequencialmente para garantir as dependências
-        if (window.settingsModule) {
-            await window.settingsModule.load();
-        }
-        if (window.cavalosModule) {
-            await window.cavalosModule.load();
-        }
-        if (window.ocorrenciasModule) {
-            await window.ocorrenciasModule.load();
-        }
-        if (window.tripsModule) {
-            // Passa as datas do mês atual para o módulo de viagens limitar a busca
-            await window.tripsModule.load(startOfMonth, endOfMonth);
-            window.tripsModule.renderRecentTrips();
-        }
-        if (window.driversModule) {
-            await window.driversModule.load();
-        }
-        if (window.rankingModule) {
-            window.rankingModule.render();
-        }
-        
-        updateDashboard();
-    }
 
-    function setupNavigation() {
-        const navLinks = document.querySelectorAll('.nav-item');
-        const pages = document.querySelectorAll('.page');
-        const pageTitle = document.getElementById('pageTitle');
-
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const page = link.dataset.page;
-                
-                navLinks.forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-                
-                pages.forEach(p => p.classList.remove('active'));
-                document.getElementById(`${page}-page`).classList.add('active');
-                
-                currentPage = page;
-                
-                const titles = {
-                    dashboard: 'Dashboard',
-                    cavalos: 'Cavalos',
-                    drivers: 'Motoristas',
-                    ocorrencias: 'Ocorrências',
-                    import: 'Importar Dados',
-                    historico: 'Histórico',
-                    ranking: 'Hall da Fama',
-                    settings: 'Configurações'
-                };
-                
-                if (pageTitle) {
-                    pageTitle.textContent = titles[page] || 'Dashboard';
-                }
-                
-                // Refresh data when changing pages
-                if (page === 'ranking' && window.rankingModule) {
-                    window.rankingModule.render();
-                }
-                if (page === 'historico' && window.tripsModule) {
-                    window.tripsModule.renderHistorico();
-                }
-                if (page === 'dashboard') {
-                    updateDashboard();
-                }
-            });
-        });
+        // Carrega os dados específicos dependendo da página em que o usuário está
+        if (isPage('index')) {
+            if (window.cavalosModule) await window.cavalosModule.load();
+            if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
+            if (window.driversModule) await window.driversModule.load();
+            if (window.tripsModule) {
+                await window.tripsModule.load(startOfMonth, endOfMonth);
+                window.tripsModule.renderRecentTrips();
+            }
+            updateDashboard();
+        } 
+        else if (isPage('cavalos')) {
+            if (window.cavalosModule) await window.cavalosModule.load();
+        } 
+        else if (isPage('motoristas')) {
+            if (window.driversModule) await window.driversModule.load();
+        } 
+        else if (isPage('ocorrencias')) {
+            if (window.cavalosModule) await window.cavalosModule.load(); // Placas
+            if (window.driversModule) await window.driversModule.load(); // Motoristas
+            if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
+        } 
+        else if (isPage('importar') || isPage('historico')) {
+            if (window.tripsModule) await window.tripsModule.load(startOfMonth, endOfMonth);
+        } 
+        else if (isPage('ranking')) {
+            if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
+            if (window.driversModule) await window.driversModule.load();
+            if (window.rankingModule) window.rankingModule.render();
+        }
     }
 
     function updateDashboard() {
@@ -110,10 +70,8 @@ window.app = (function() {
             const currentMonth = now.getMonth();
             const currentYear = now.getFullYear();
             
-            // Filtro igual ao do Hall da Fama para o Dashboard
             const eligibleDrivers = drivers.filter(driver => {
                 if (driver.occurrences > 0) return false;
-                
                 const hasOcorrenciaMes = ocorrencias.some(oc => {
                     if (oc.motorista === driver.name) {
                         const ocDate = new Date(oc.data + 'T00:00:00');
@@ -121,7 +79,6 @@ window.app = (function() {
                     }
                     return false;
                 });
-                
                 return !hasOcorrenciaMes;
             });
             
@@ -132,7 +89,5 @@ window.app = (function() {
 
     document.addEventListener('DOMContentLoaded', init);
 
-    return {
-        updateDashboard
-    };
+    return { updateDashboard };
 })();
