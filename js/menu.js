@@ -1,5 +1,4 @@
 // ==================== CONFIGURAÇÃO DOS MENUS ====================
-
 const menuConfig = [
     { 
         id: 'dashboard', 
@@ -13,13 +12,6 @@ const menuConfig = [
         icon: 'fas fa-leaf', 
         menuLabel: 'Indicadores Suzano', 
         pageTitle: 'Sustentabilidade e Telemetria Avançada', 
-        active: false 
-    },
-    { 
-        id: 'motorista-destaque', 
-        icon: 'fas fa-star', 
-        menuLabel: 'Motorista Destaque', 
-        pageTitle: 'Top 3 Motoristas (Pódio)', 
         active: false 
     },
     { 
@@ -42,7 +34,6 @@ const menuConfig = [
 function renderMenu() {
     const navContainer = document.getElementById('navMenuContainer');
     if (!navContainer) return;
-
     navContainer.innerHTML = menuConfig.map(item => `
         <a href="#" class="nav-item ${item.active ? 'active' : ''}" data-page="${item.id}">
             <i class="${item.icon}"></i>

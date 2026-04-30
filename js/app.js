@@ -1,10 +1,8 @@
 // ==================== CÉREBRO DA APLICAÇÃO (CÁLCULOS E INTEGRAÇÃO) ====================
-
 document.addEventListener('DOMContentLoaded', () => {
     if (!initSupabase()) { console.error('Erro de Supabase'); return; }
     
     renderMenu();
-    
     initNavigation();
     initMenuToggle();
     initImportModule();
@@ -181,7 +179,6 @@ async function loadCoreData() {
     const bounds = getDateBoundaries();
     
     try {
-        // Trazendo as novas colunas
         const viagensPromise = supabaseClient
             .from('viagens')
             .select('placa, motorista, km_l, distancia_km, litros_gastos, inicio, fim, tempo_conducao, tempo_parado, local_inicial, local_final, velocidade_maxima, co2_kg, rpm_vermelha_perc, total_eventos')
@@ -189,30 +186,28 @@ async function loadCoreData() {
             .lte('inicio', bounds.endStr)
             .order('inicio', { ascending: true })
             .limit(100000);
-
+            
         const historicoPromise = supabaseClientHistorico
             .from('historico_viagens')
             .select('*')
             .eq('transportadora', 'SERRANALOG TRANSPORTES')
             .limit(100000);
-
-        const [viagensResult, historicoResult] = await Promise.all([viagensPromise, historicoPromise]);
             
+        const [viagensResult, historicoResult] = await Promise.all([viagensPromise, historicoPromise]);
+        
         if (viagensResult.error) throw viagensResult.error;
         
         rawData = viagensResult.data || [];
         
         if (rawData.length === 0) { showEmptyDashboard(); return; }
-
+        
         rawHistorico = [];
         if (!historicoResult.error && historicoResult.data) {
             const startMs = new Date(bounds.startStr.replace(' ', 'T')).getTime();
             const endMs = new Date(bounds.endStr.replace(' ', 'T')).getTime();
-
             rawHistorico = historicoResult.data.filter(item => {
                 const dVal = item.dataDaBaseExcel || item.dataLancamento || item.created_at;
-                if (!dVal) return true; 
-                
+                if (!dVal) return true;
                 let itemMs;
                 const strVal = String(dVal).trim();
                 
@@ -221,15 +216,14 @@ async function loadCoreData() {
                     if (parts.length >= 3) {
                         const day = parts[0].padStart(2, '0');
                         const month = parts[1].padStart(2, '0');
-                        const year = parts[2].substring(0, 4); 
+                        const year = parts[2].substring(0, 4);
                         itemMs = new Date(`${year}-${month}-${day}T12:00:00`).getTime();
                     }
                 } else {
                     itemMs = new Date(strVal).getTime();
                 }
                 
-                if (isNaN(itemMs)) return true; 
-                
+                if (isNaN(itemMs)) return true;
                 return itemMs >= startMs && itemMs <= endMs;
             });
         } else if (historicoResult.error) {
@@ -346,15 +340,16 @@ function calculateMetrics(viagens, historico) {
     const daysDiff = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
     
     dashboardData.totalHistoricoTrips = historico.length;
-
+    dashboardData.totalViagens = viagens.length; // Corrige o contador principal
+    
     const truckTrips = new Map();
-    historico.forEach(v => { 
-        let p = v.placa || v.Placa || v.PLACA || 'Indefinido'; 
+    historico.forEach(v => {
+        let p = v.placa || v.Placa || v.PLACA || 'Indefinido';
         p = String(p).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        truckTrips.set(p, (truckTrips.get(p) || 0) + 1); 
+        truckTrips.set(p, (truckTrips.get(p) || 0) + 1);
     });
     
-    let sumTrips = 0; let active = 0; 
+    let sumTrips = 0; let active = 0;
     dashboardData.alerts = [];
     
     dashboardData.trucks.forEach(t => {
@@ -362,7 +357,7 @@ function calculateMetrics(viagens, historico) {
         const tripsTotal = truckTrips.get(normPlate) || 0;
         const avg = tripsTotal / daysDiff;
         
-        sumTrips += avg; 
+        sumTrips += avg;
         active++;
         
         let issue = 'OK';
@@ -382,9 +377,9 @@ function calculateMetrics(viagens, historico) {
             pesoCritico = 1;
         }
         
-        dashboardData.alerts.push({ 
-            placa: t.plate, 
-            trips: avg, 
+        dashboardData.alerts.push({
+            placa: t.plate,
+            trips: avg,
             kml: t.realKML,
             issue: issue,
             peso: pesoCritico
@@ -393,8 +388,8 @@ function calculateMetrics(viagens, historico) {
     
     dashboardData.alerts.sort((a, b) => {
         if (b.peso !== a.peso) return b.peso - a.peso;
-        if (a.kml !== b.kml) return a.kml - b.kml;     
-        return a.trips - b.trips;                      
+        if (a.kml !== b.kml) return a.kml - b.kml;
+        return a.trips - b.trips;
     });
     
     dashboardData.avgTripsPerDay = active > 0 ? (sumTrips / active) : 0;

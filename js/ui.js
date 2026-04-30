@@ -41,7 +41,6 @@ function initNavigation() {
             currentPage = pageId;
             
             document.getElementById('globalFilters').style.display = (pageId === 'configuracoes') ? 'none' : 'flex';
-
             // Re-renderizar gráficos Echarts que possam ter quebrado no display: none
             setTimeout(() => {
                 if (driverChart) driverChart.resize();
@@ -65,9 +64,6 @@ function updateMetaTexts() {
     
     const crit = document.getElementById('criticalDriversTitle');
     if(crit) crit.innerHTML = `<i class="fas fa-user-times"></i> Motoristas Críticos (< ${currentMetaKML.toFixed(2)} KM/L)`;
-    
-    const lblViag = document.getElementById('metaLabelViagens');
-    if(lblViag) lblViag.innerText = `Meta: ${currentMetaViagens.toFixed(1)} por dia`;
 }
 
 function updateStatsCards() {
@@ -81,11 +77,6 @@ function updateStatsCards() {
     
     el('totalDistance', `${Math.round(dashboardData.totalDist).toLocaleString('pt-BR')} KM`);
     el('totalFuel', `${Math.round(dashboardData.totalFuel).toLocaleString('pt-BR')} L`);
-    
-    el('totalTripsInfo', `${dashboardData.totalHistoricoTrips}`);
-    
-    const vColor = dashboardData.avgTripsPerDay < currentMetaViagens && dashboardData.avgTripsPerDay > 0 ? '#f87171' : '#34d399';
-    el('avgTripsPerDay', `${dashboardData.avgTripsPerDay.toFixed(1)} /dia`, vColor);
 }
 
 function renderTables(viagens) {
@@ -133,7 +124,6 @@ function renderTables(viagens) {
             aBody.innerHTML = dashboardData.alerts.map(a => {
                 let badgeClass = 'success';
                 let badgeStyle = '';
-
                 if (a.peso === 3 || a.issue === 'Alto Consumo') {
                     badgeClass = 'danger';
                 } else if (a.issue === 'Baixa Rodagem') {
@@ -141,10 +131,8 @@ function renderTables(viagens) {
                 } else {
                     badgeStyle = 'style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);"';
                 }
-
                 const tripsColor = a.trips < currentMetaViagens ? 'text-warning' : 'text-success';
                 const kmlColor = a.kml < currentMetaKML ? 'text-danger' : 'text-success';
-
                 return `<tr>
                     <td style="font-weight: 600;">${a.placa}</td>
                     <td class="${tripsColor}">${a.trips.toFixed(1)}</td>
@@ -181,8 +169,6 @@ function renderTables(viagens) {
             }).join('');
         }
     }
-
-    renderPodium();
 }
 
 // Renderiza a Aba "Indicadores Suzano"
@@ -190,13 +176,11 @@ function renderSuzanoTab(viagens) {
     let totalCo2 = 0;
     let totalEventos = 0;
     const driverMap = new Map();
-
     viagens.forEach(v => {
         const co2 = parseFloat(v.co2_kg) || 0;
         const eventos = parseInt(v.total_eventos) || 0;
         totalCo2 += co2;
         totalEventos += eventos;
-
         const dName = v.motorista || 'Indefinido';
         if (!driverMap.has(dName)) {
             driverMap.set(dName, { co2: 0, eventos: 0, maxVel: 0, rpmVermelho: 0, count: 0 });
@@ -208,19 +192,16 @@ function renderSuzanoTab(viagens) {
         data.rpmVermelho = Math.max(data.rpmVermelho, parseFloat(v.rpm_vermelha_perc) || 0);
         data.count++;
     });
-
     const eTotalCo2 = document.getElementById('totalCo2');
     if (eTotalCo2) eTotalCo2.innerText = totalCo2.toLocaleString('pt-BR', {maximumFractionDigits: 2});
     
     const eTotalEvt = document.getElementById('totalEventos');
     if (eTotalEvt) eTotalEvt.innerText = totalEventos;
-
     const sBody = document.getElementById('suzanoTableBody');
     if (sBody) {
         const arr = Array.from(driverMap.entries()).map(([name, d]) => ({
             name, co2: d.co2, maxVel: d.maxVel, rpm: d.rpmVermelho, eventos: d.eventos
         })).sort((a, b) => b.co2 - a.co2); // O poluidor chefe em cima
-
         if (arr.length === 0) {
             sBody.innerHTML = '<tr><td colspan="5" class="text-center text-warning">Sem dados de telemetria no período.</td></tr>';
         } else {
@@ -235,51 +216,6 @@ function renderSuzanoTab(viagens) {
             `).join('');
         }
     }
-}
-
-function renderPodium() {
-    const podiumContainer = document.getElementById('podiumContainer');
-    if (!podiumContainer) return;
-
-    const topDrivers = dashboardData.drivers.filter(d => d.realKML > 0 && d.dist > 1000).slice(0, 3);
-
-    if (topDrivers.length === 0) {
-        podiumContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Nenhum motorista atingiu a distância mínima de 1.000 KM no período selecionado.</div>';
-        return;
-    }
-
-    let displayOrder = [];
-    if (topDrivers.length === 3) displayOrder = [topDrivers[1], topDrivers[0], topDrivers[2]];
-    else if (topDrivers.length === 2) displayOrder = [topDrivers[1], topDrivers[0]];
-    else displayOrder = [topDrivers[0]];
-
-    const rankClasses = { 0: 'rank-1', 1: 'rank-2', 2: 'rank-3' };
-    const icons = { 0: '<i class="fas fa-trophy"></i>', 1: '<i class="fas fa-medal"></i>', 2: '<i class="fas fa-award"></i>' };
-
-    podiumContainer.innerHTML = displayOrder.map(d => {
-        const originalIndex = topDrivers.indexOf(d);
-        const rankClass = rankClasses[originalIndex];
-        const icon = icons[originalIndex];
-
-        return `
-            <div class="podium-card ${rankClass}">
-                <div class="rank-badge">${icon}</div>
-                <div class="podium-avatar"><i class="fas fa-user-astronaut"></i></div>
-                <div class="podium-name">${d.name}</div>
-                <div class="podium-kml">${d.realKML.toFixed(2)} <span style="font-size: 0.9rem; font-weight: 500; color: #94a3b8;">KM/L</span></div>
-                <div class="podium-stats">
-                    <div class="p-stat">
-                        <span>Distância</span>
-                        <strong>${Math.round(d.dist).toLocaleString('pt-BR')} km</strong>
-                    </div>
-                    <div class="p-stat">
-                        <span>Viagens</span>
-                        <strong>${d.trips}</strong>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
 }
 
 function parseInterval(i) {
@@ -372,9 +308,7 @@ function renderEvolutionChartLogic(viagens, selMot, selPlac) {
         } else if (v.km_l && parseFloat(v.km_l) > 0) {
             litros = parseFloat(v.distancia_km) / parseFloat(v.km_l);
         }
-
         if (litros <= 0) return;
-
         const date = new Date(v.inicio);
         const key = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
         
@@ -402,7 +336,6 @@ function renderEvolutionChartLogic(viagens, selMot, selPlac) {
     }
     
     if(titHTML) titHTML.innerHTML = `<i class="fas fa-chart-area"></i> ${title}`;
-
     if (evolutionChart) evolutionChart.dispose();
     evolutionChart = echarts.init(canvas);
     evolutionChart.setOption({
@@ -445,11 +378,7 @@ function showEmptyDashboard() {
     const meds = ['medConducao', 'medParado'];
     meds.forEach(i => { if(document.getElementById(i)) document.getElementById(i).innerText = 'Média: --h / viag'; });
     
-    if(document.getElementById('avgTripsPerDay')) document.getElementById('avgTripsPerDay').innerText = '--/dia';
     if(document.getElementById('centerEficiencia')) document.getElementById('centerEficiencia').innerText = '--%';
-    
-    const pContainer = document.getElementById('podiumContainer');
-    if (pContainer) pContainer.innerHTML = '<div class="text-center text-warning" style="width: 100%; margin-top: 50px;">Sem dados para gerar o pódio.</div>';
     
     if (driverChart) driverChart.dispose();
     if (truckChart) truckChart.dispose();
