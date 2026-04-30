@@ -14,8 +14,15 @@ let currentMetaViagens = 2.0;
 
 const PLACAS_IGNORADAS = ['GSR0001', 'GSR0002', 'GSR0007', 'GSR0008', 'RBJ6J29']; 
 
+// Motoristas que serão limpos na importação e não entrarão no cálculo da frota
+const MOTORISTAS_IGNORADOS = [
+    'KEVEN MELGACO DE JESUS',
+    'GIVANILDO DA CONCEICAO URSULINO',
+    'GIVANILDO DA CONCEIÇÃO URSULINO'
+];
+
 let rawData = []; 
-let rawHistorico = []; // Armazena isoladamente dados do banco de histórico
+let rawHistorico = []; 
 
 let dashboardData = { 
     avgConsumption: 0, totalDist: 0, totalFuel: 0, avgTripsPerDay: 0, totalHistoricoTrips: 0,

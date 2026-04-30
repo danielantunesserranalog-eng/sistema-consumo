@@ -6,37 +6,37 @@
     <title>SISTEMA_CONSUMO - Gestão Avançada de Frota</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="logo-area">
                 <img src="assets/logo.png" alt="Serrana Florestal" class="brand-logo">
             </div>
             
-            <!-- MENU INJETADO PELO menu.js -->
             <nav class="nav-menu" id="navMenuContainer">
             </nav>
 
             <div class="sidebar-footer">
-                <p>Versão 6.0 Modular PRO</p>
+                <p>Versão 6.1 Modular PRO</p>
             </div>
         </aside>
         
-        <!-- Main Content -->
         <main class="main-content">
             
-            <!-- TOP BAR UNIFICADA (Header + Filtros Globais) -->
             <header class="top-bar">
                 <div class="header-content">
                     <div class="header-left">
                         <div class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></div>
                         <h1 id="pageTitle">Visão Geral da Frota</h1>
+                        <button id="exportPdfBtn" class="btn-primary" style="background: #10b981; margin-left: 20px; height: 35px; font-size: 0.85rem;">
+                            <i class="fas fa-file-pdf"></i> Exportar Relatório
+                        </button>
                     </div>
                     <div class="user-info">
                         <div class="status-indicator"></div>
@@ -44,7 +44,6 @@
                         <i class="fas fa-user-circle"></i>
                     </div>
                 </div>
-                <!-- FILTROS CRUZADOS GLOBAIS NO TOPO -->
                 <div class="global-filters" id="globalFilters">
                     <div class="filter-group">
                         <label><i class="far fa-calendar-alt"></i> Período</label>
@@ -86,7 +85,6 @@
             
             <div class="content-area" id="contentArea">
                 
-                <!-- Dashboard Page -->
                 <div id="dashboardPage" class="page active">
                     <div class="stats-grid">
                         <div class="stat-card highlight-card">
@@ -107,7 +105,7 @@
                         <div class="stat-card">
                             <div class="stat-icon"><i class="fas fa-fill-drip"></i></div>
                             <div class="stat-info">
-                                <h3>Combustível Consumido (Real)</h3>
+                                <h3>Combustível Consumido</h3>
                                 <p id="totalFuel">--</p>
                             </div>
                         </div>
@@ -127,15 +125,11 @@
                     <div class="charts-row">
                         <div class="chart-card">
                             <h3><i class="fas fa-medal"></i> Desempenho por Motorista</h3>
-                            <div class="chart-container">
-                                <canvas id="driverConsumptionChart"></canvas>
-                            </div>
+                            <div class="chart-container" id="driverConsumptionChart"></div>
                         </div>
                         <div class="chart-card">
                             <h3><i class="fas fa-truck"></i> Desempenho por Frota</h3>
-                            <div class="chart-container">
-                                <canvas id="truckConsumptionChart"></canvas>
-                            </div>
+                            <div class="chart-container" id="truckConsumptionChart"></div>
                         </div>
                     </div>
                     <div class="charts-row">
@@ -152,7 +146,7 @@
                                 </div>
                                 
                                 <div class="chart-container efficiency-chart">
-                                    <canvas id="timeDistributionChart"></canvas>
+                                    <div id="timeDistributionChart" style="width: 100%; height: 100%;"></div>
                                     <div class="chart-center-overlay">
                                         <h2 id="centerEficiencia">--%</h2>
                                         <span>Produtividade</span>
@@ -170,7 +164,7 @@
                     </div>
                     <div class="tables-row">
                         <div class="table-card full-width">
-                            <h3><i class="fas fa-trophy" style="color: #fbbf24;"></i> Ranking Geral de Motoristas (KML Ponderado)</h3>
+                            <h3><i class="fas fa-trophy" style="color: #fbbf24;"></i> Ranking Geral de Motoristas (KM/L Ponderado)</h3>
                             <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
                                 <table id="rankingTable">
                                     <thead style="position: sticky; top: 0; z-index: 10;">
@@ -227,7 +221,49 @@
                     </div>
                 </div>
 
-                <!-- NOVA PÁGINA: Motorista Destaque -->
+                <div id="indicadores-suzanoPage" class="page">
+                    <div class="stats-grid">
+                        <div class="stat-card highlight-card" style="background: linear-gradient(135deg, #1e293b 0%, #064e3b 100%); border-color: #10b981;">
+                            <div class="stat-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);"><i class="fas fa-smog"></i></div>
+                            <div class="stat-info">
+                                <h3>CO2 Emitido (Total)</h3>
+                                <p id="totalCo2">--</p>
+                                <small>Kg na Atmosfera</small>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fas fa-exclamation-triangle"></i></div>
+                            <div class="stat-info">
+                                <h3>Total de Eventos</h3>
+                                <p id="totalEventos">--</p>
+                                <small>Frenagens e infrações de RPM</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tables-row">
+                        <div class="table-card full-width">
+                            <h3><i class="fas fa-leaf" style="color: #10b981;"></i> Ranking de Sustentabilidade e Telemetria (Baseado em Emissão Total)</h3>
+                            <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                                <table id="suzanoTable">
+                                    <thead style="position: sticky; top: 0; z-index: 10;">
+                                        <tr>
+                                            <th>Motorista</th>
+                                            <th>Emissão Total (Kg)</th>
+                                            <th>Velocidade Máx.</th>
+                                            <th>RPM Faixa Vermelha (%)</th>
+                                            <th>Qtd. Eventos</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="suzanoTableBody">
+                                        <tr><td colspan="5" class="text-center">Aguardando dados...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="motorista-destaquePage" class="page">
                     <div class="chart-card full-width">
                         <h3 style="text-align: center; justify-content: center; font-size: 1.5rem; margin-bottom: 5px;">
@@ -236,23 +272,17 @@
                         <p style="text-align: center; color: #94a3b8; margin-bottom: 20px;">
                             Pódio baseado no melhor KM/L geral (os dados respeitam o filtro de Data/Mês no topo da tela).
                         </p>
-                        
                         <div class="podium-wrapper">
-                            <div class="podium-container" id="podiumContainer">
-                                <!-- Pódio gerado via JS -->
-                            </div>
+                            <div class="podium-container" id="podiumContainer"></div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Histórico Detalhado Page -->
                 <div id="consumo-evolutionPage" class="page">
                     <div class="chart-card full-width" style="margin-bottom: 24px;">
                         <h3 id="tituloEvolucao"><i class="fas fa-chart-area"></i> Linha do Tempo de Desempenho (KM/L Real)</h3>
                         <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">O gráfico obedece aos cruzamentos de Frota e Motoristas selecionados no menu superior.</p>
-                        <div class="chart-container" style="height: 350px;">
-                            <canvas id="evolutionChart"></canvas>
-                        </div>
+                        <div class="chart-container" id="evolutionChart" style="height: 350px;"></div>
                     </div>
                     <div class="table-card full-width">
                         <h3><i class="fas fa-route"></i> Registro Diário de Viagens (Período Selecionado)</h3>
@@ -276,9 +306,7 @@
                     </div>
                 </div>
                 
-                <!-- Configurações Page -->
                 <div id="configuracoesPage" class="page">
-                    
                     <div class="config-card" style="margin-bottom: 24px;">
                         <h2><i class="fas fa-bullseye"></i> Parâmetros Operacionais</h2>
                         <p>Defina a régua de consumo e produtividade da frota. O sistema ajustará os gráficos e alertas automaticamente com base nestes valores.</p>
@@ -296,7 +324,7 @@
                     </div>
                     <div class="config-card">
                         <h2><i class="fas fa-database"></i> Motor de Importação Inteligente</h2>
-                        <p>Envie relatórios CSV. O sistema limpará duplicatas, consolidará as viagens e ignorará viagens curtas de manobra.</p>
+                        <p>Envie relatórios CSV. O sistema limpará duplicatas, consolidará as viagens e ignorará motoristas bloqueados.</p>
                         
                         <div class="upload-area" id="uploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
@@ -317,7 +345,6 @@
         </main>
     </div>
     
-    <!-- SCRIPTS MODULARIZADOS: A ORDEM AQUI É OBRIGATÓRIA -->
     <script src="js/config.js"></script>
     <script src="js/menu.js"></script>
     <script src="js/ui.js"></script>

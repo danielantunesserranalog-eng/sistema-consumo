@@ -9,6 +9,13 @@ const menuConfig = [
         active: true 
     },
     { 
+        id: 'indicadores-suzano', 
+        icon: 'fas fa-leaf', 
+        menuLabel: 'Indicadores Suzano', 
+        pageTitle: 'Sustentabilidade e Telemetria Avançada', 
+        active: false 
+    },
+    { 
         id: 'motorista-destaque', 
         icon: 'fas fa-star', 
         menuLabel: 'Motorista Destaque', 
