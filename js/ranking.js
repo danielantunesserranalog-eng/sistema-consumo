@@ -10,9 +10,8 @@ window.rankingModule = (function() {
 
         // Zera a chance de quem tem ocorrência no mês atual de entrar no Hall da Fama
         const eligibleDrivers = drivers.filter(driver => {
-            if (driver.occurrences > 0) return false; // Barrado por ocorrências diretas (botão vermelho da tabela)
+            if (driver.occurrences > 0) return false;
             
-            // Barrado por ocorrências registradas no menu de Ocorrências
             const hasOcorrenciaMes = ocorrencias.some(oc => {
                 if (oc.motorista === driver.name) {
                     const ocDate = new Date(oc.data + 'T00:00:00');
@@ -21,7 +20,7 @@ window.rankingModule = (function() {
                 return false;
             });
             
-            return !hasOcorrenciaMes; // Só passa se for falso (não tem ocorrência)
+            return !hasOcorrenciaMes;
         });
 
         const sortedDrivers = [...eligibleDrivers]
@@ -60,7 +59,7 @@ window.rankingModule = (function() {
                     <div class="podium-name">${escapeHtml(d.name)}</div>
                     <div class="podium-kml">${utils.formatNumber(d.avgEconomy)} <span style="font-size: 1rem; color: #94a3b8;">km/L</span></div>
                     <div class="podium-stats">
-                        <div class="p-stat"><span>Pontos</span><strong>${d.score || 0}</strong></div>
+                        <div class="p-stat"><span>Pontos</span><strong>${Math.round(d.score || 0)}</strong></div>
                         <div class="p-stat"><span>Distância</span><strong>${utils.formatNumber(d.totalDistance, 0)} km</strong></div>
                     </div>
                 </div>
@@ -84,7 +83,7 @@ window.rankingModule = (function() {
                                 <span><i class="fas fa-road"></i> ${utils.formatNumber(driver.totalDistance, 0)} km</span>
                             </div>
                         </div>
-                        <div class="ranking-list-score">${driver.score || 0} pts</div>
+                        <div class="ranking-list-score">${Math.round(driver.score || 0)} pts</div>
                     </div>
                 `;
             });
