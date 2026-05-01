@@ -7,16 +7,58 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <!-- Adicionando a biblioteca Chart.js para o gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
         <app-sidebar></app-sidebar>
         <main class="main-content">
             <app-topbar title="Registro de Ocorrências"></app-topbar>
+            
             <div class="content-area">
+                <!-- Painel de Indicadores -->
+                <div class="stats-grid" style="margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2);"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="stat-info">
+                            <h3>Total no Mês</h3><p id="oc-total">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);"><i class="fas fa-user-injured"></i></div>
+                        <div class="stat-info">
+                            <h3>Maior Reincidente</h3><p id="oc-reincidente" style="font-size: 1.2rem;">-</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2);"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="stat-info">
+                            <h3>Local Crítico</h3><p id="oc-local" style="font-size: 1.2rem;">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Evolução Diária com Filtro -->
+                <div class="chart-card full-width" style="margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #e2e8f0;"><i class="fas fa-chart-bar" style="color: #ef4444;"></i> Evolução Diária de Ocorrências</h3>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="color: #94a3b8; font-weight: 600; font-size: 0.9rem;"><i class="fas fa-calendar-alt"></i> Mês:</label>
+                            <select id="dashboard-month-filter" class="form-control filter-input" style="width: 150px; font-weight: bold; background: #0f172a; color: #fbbf24; border-color: #fbbf24;" onchange="window.ocorrenciasModule.renderDashboard()">
+                                <!-- Os meses serão injetados aqui via JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="ocorrenciasChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Tabela Original de Histórico -->
                 <div class="table-card full-width">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin: 0;"><i class="fas fa-exclamation-triangle"></i> Registro de Ocorrências</h3>
+                        <h3 style="margin: 0;"><i class="fas fa-list"></i> Histórico de Ocorrências</h3>
                         <button class="btn-primary" onclick="window.ocorrenciasModule.openModal()">
                             <i class="fas fa-plus"></i> Nova Ocorrência
                         </button>
@@ -67,8 +109,14 @@
         </div>
     </div>
 
+    <!-- Scripts Supabase e Sistema -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/menu.js"></script><script src="js/utils.js"></script><script src="js/config.js"></script>
-    <script src="js/app.js"></script><script src="js/ocorrencias.js"></script><script src="js/cavalos.js"></script><script src="js/drivers.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/ocorrencias.js"></script>
+    <script src="js/cavalos.js"></script>
+    <script src="js/drivers.js"></script>
 </body>
 </html>
