@@ -17,7 +17,7 @@ window.ocorrenciasModule = (function() {
         const tbody = document.getElementById('ocorrencias-list');
         if (!tbody) return;
 
-        // NOVO: Ordenar do mais recente para o mais antigo (Data e Hora)
+        // Ordenar do mais recente para o mais antigo (Data e Hora)
         const sortedOcorrencias = [...ocorrencias].sort((a, b) => {
             const dateA = new Date(`${a.data}T${a.hora || '00:00'}:00`).getTime();
             const dateB = new Date(`${b.data}T${b.hora || '00:00'}:00`).getTime();
@@ -63,19 +63,16 @@ window.ocorrenciasModule = (function() {
         return available;
     }
 
-    // Formata o mês para exibir bonito (ex: Jan/24)
     function formatMonthStr(yyyy_mm) {
         const [y, m] = yyyy_mm.split('-');
         const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         return `${monthNames[parseInt(m)-1]}/${y}`;
     }
 
-    // Renderiza os KPIs numéricos e o Gráfico baseado no mês selecionado
     function renderDashboard() {
         const availableMonths = getAvailableMonths();
         const filterSelect = document.getElementById('dashboard-month-filter');
         
-        // Se o select estiver vazio, preenche ele
         if (filterSelect && filterSelect.options.length === 0) {
             filterSelect.innerHTML = availableMonths.map(m => `<option value="${m}">${formatMonthStr(m)}</option>`).join('');
         }
@@ -87,7 +84,6 @@ window.ocorrenciasModule = (function() {
         
         const [selYear, selMonth] = selectedMonth.split('-');
 
-        // Filtra as ocorrências apenas do mês selecionado
         const currentMonthOcorrencias = ocorrencias.filter(oc => {
             if(!oc.data) return false;
             const d = new Date(oc.data + 'T00:00:00');
@@ -116,19 +112,31 @@ window.ocorrenciasModule = (function() {
         if (reinEl) reinEl.textContent = topMotorista[1] > 0 ? `${topMotorista[0]} (${topMotorista[1]})` : '-';
         if (localEl) localEl.textContent = topLocal[1] > 0 ? `${topLocal[0]} (${topLocal[1]})` : '-';
 
-        // 2. Preparar Dados Diários (Gráfico)
+        // 2. Preparar Dados Diários (Gráfico com zeros até o dia atual)
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const currentDay = now.getDate();
+        
         const daysInMonth = new Date(selYear, selMonth, 0).getDate();
         const labels = [];
-        const dataCounts = new Array(daysInMonth).fill(0);
+        const dataCounts = [];
 
         for (let i = 1; i <= daysInMonth; i++) {
             labels.push(`${String(i).padStart(2, '0')}/${selMonth}`);
+            
+            // Se for o mês atual e o dia iterado for no futuro (ex: amanhã), não traça a linha
+            if (parseInt(selYear) === currentYear && parseInt(selMonth) === currentMonth && i > currentDay) {
+                dataCounts.push(null);
+            } else {
+                dataCounts.push(0); // Garante o 0 para dias passados ou até hoje
+            }
         }
 
         currentMonthOcorrencias.forEach(oc => {
             const d = new Date(oc.data + 'T00:00:00');
             const dayIndex = d.getDate() - 1; 
-            if (dayIndex >= 0 && dayIndex < daysInMonth) {
+            if (dayIndex >= 0 && dayIndex < daysInMonth && dataCounts[dayIndex] !== null) {
                 dataCounts[dayIndex]++;
             }
         });
@@ -136,7 +144,7 @@ window.ocorrenciasModule = (function() {
         renderChart(labels, dataCounts);
     }
 
-    // Desenha e atualiza o gráfico diário (Moderno com Valores no Topo)
+    // Desenha o gráfico de Linhas Moderno com Valores no Topo
     function renderChart(labels, data) {
         const canvas = document.getElementById('ocorrenciasChart');
         if (!canvas) return;
@@ -144,26 +152,27 @@ window.ocorrenciasModule = (function() {
 
         if (chartInstance) chartInstance.destroy(); 
 
-        // Criando um gradiente vermelho moderno para as barras
+        // Gradiente moderno abaixo da curva
         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, '#ef4444'); // Vermelho vibrante no topo
-        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.2)'); // Translúcido na base
+        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)'); // Vermelho translúcido no topo
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.0)'); // Transparente na base
 
-        // Plugin customizado para desenhar os números no topo das barras
+        // Plugin customizado para desenhar os números no topo dos pontos
         const showValuesPlugin = {
             id: 'showValues',
             afterDatasetsDraw(chart) {
                 const { ctx } = chart;
                 chart.data.datasets.forEach((dataset, i) => {
                     const meta = chart.getDatasetMeta(i);
-                    meta.data.forEach((bar, index) => {
+                    meta.data.forEach((element, index) => {
                         const val = dataset.data[index];
-                        if (val > 0) { // Mostra apenas se teve ocorrência no dia
-                            ctx.fillStyle = '#f8fafc'; // Cor do texto (branco)
-                            ctx.font = 'bold 12px "Inter", sans-serif';
+                        if (val !== null && val !== undefined) { 
+                            // Destaca os dias com ocorrência em branco, e os zerados ficam mais discretos
+                            ctx.fillStyle = val > 0 ? '#f8fafc' : '#64748b'; 
+                            ctx.font = val > 0 ? 'bold 13px "Inter", sans-serif' : 'normal 11px "Inter", sans-serif';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'bottom';
-                            ctx.fillText(val, bar.x, bar.y - 6); // Posiciona um pouco acima da barra
+                            ctx.fillText(val, element.x, element.y - 8); // Desenha logo acima do ponto
                         }
                     });
                 });
@@ -171,23 +180,32 @@ window.ocorrenciasModule = (function() {
         };
 
         chartInstance = new Chart(ctx, {
-            type: 'bar', // Gráfico de Barras Moderno
+            type: 'line', 
             data: {
                 labels: labels,
                 datasets: [{
                     label: 'Nº de Ocorrências',
                     data: data,
+                    borderColor: '#ef4444',
+                    borderWidth: 3,
                     backgroundColor: gradient,
-                    borderRadius: 6, // Bordas arredondadas
-                    borderSkipped: false,
-                    hoverBackgroundColor: '#f87171',
-                    barPercentage: 0.6 // Afina um pouco a barra para ficar elegante
+                    fill: true,
+                    tension: 0.4, // Faz a curva suave entre os pontos
+                    pointBackgroundColor: '#1e293b',
+                    pointBorderColor: '#ef4444',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    spanGaps: false // Impede que a linha conecte sobre os dias nulos (futuro)
                 }]
             },
-            plugins: [showValuesPlugin], // Injetando o plugin de números
+            plugins: [showValuesPlugin], 
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 20 } // Dá um respiro para os números altos não cortarem
+                },
                 plugins: { 
                     legend: { display: false },
                     tooltip: {
@@ -210,13 +228,14 @@ window.ocorrenciasModule = (function() {
                         beginAtZero: true, 
                         ticks: { stepSize: 1, color: '#64748b', font: {size: 11} },
                         grid: { color: 'rgba(51, 65, 85, 0.3)', borderDash: [5, 5] },
-                        border: { display: false }
+                        border: { display: false },
+                        suggestedMax: Math.max(...data.filter(n => n !== null)) + 1 // Ajusta o teto dinamicamente
                     },
                     x: { 
                         ticks: { 
                             color: '#94a3b8',
                             font: {size: 10},
-                            maxTicksLimit: 15 // Evita esmagar o texto em telas menores
+                            maxTicksLimit: 15 // Evita esmagar o texto
                         },
                         grid: { display: false },
                         border: { display: false }
@@ -323,7 +342,7 @@ window.ocorrenciasModule = (function() {
             utils.showAlert('Ocorrência registrada no banco!', 'success');
         }
         
-        await loadOcorrencias(); // O gráfico será atualizado automaticamente aqui
+        await loadOcorrencias(); 
         closeModal();
         updateSystemViews();
         btn.disabled = false;
@@ -332,7 +351,7 @@ window.ocorrenciasModule = (function() {
     async function deleteOcorrencia(id) {
         if (confirm('Tem certeza que deseja excluir esta ocorrência do banco de dados?')) {
             await window.supabaseClient.from('ocorrencias').delete().eq('id', id);
-            await loadOcorrencias(); // O gráfico será atualizado automaticamente aqui
+            await loadOcorrencias(); 
             utils.showAlert('Ocorrência excluída com sucesso!', 'success');
             updateSystemViews();
         }
