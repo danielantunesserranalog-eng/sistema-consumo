@@ -43,8 +43,12 @@ window.ocorrenciasModule = (function() {
         const select = document.getElementById('oc-placa');
         if (!select) return;
         const cavalos = window.cavalosModule ? window.cavalosModule.getAll() : [];
+        
+        // Ordena as placas de A a Z
+        const sortedCavalos = [...cavalos].sort((a, b) => (a.placa || '').localeCompare(b.placa || ''));
+        
         let optionsHtml = '<option value="">Selecione a placa...</option>';
-        cavalos.forEach(cavalo => {
+        sortedCavalos.forEach(cavalo => {
             optionsHtml += `<option value="${cavalo.placa}">${cavalo.placa} (Conjunto: ${cavalo.conjunto})</option>`;
         });
         select.innerHTML = optionsHtml;
@@ -54,8 +58,12 @@ window.ocorrenciasModule = (function() {
         const select = document.getElementById('oc-motorista');
         if (!select) return;
         const motoristas = window.driversModule ? window.driversModule.getAll() : [];
+        
+        // Ordena os motoristas de A a Z
+        const sortedMotoristas = [...motoristas].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        
         let optionsHtml = '<option value="">Selecione o motorista (Opcional)...</option>';
-        motoristas.forEach(mot => {
+        sortedMotoristas.forEach(mot => {
             optionsHtml += `<option value="${mot.name}">${mot.name}</option>`;
         });
         select.innerHTML = optionsHtml;
@@ -108,7 +116,6 @@ window.ocorrenciasModule = (function() {
         event.preventDefault();
         const btn = event.target.querySelector('button[type="submit"]');
         btn.disabled = true;
-
         const ocorrenciaData = {
             data: document.getElementById('oc-data').value,
             hora: document.getElementById('oc-hora').value,
@@ -117,7 +124,7 @@ window.ocorrenciasModule = (function() {
             placa: document.getElementById('oc-placa').value,
             descricao: document.getElementById('oc-descricao').value
         };
-
+        
         if (editingId) {
             await window.supabaseClient.from('ocorrencias').update(ocorrenciaData).eq('id', editingId);
             utils.showAlert('Ocorrência atualizada com sucesso!', 'success');
@@ -125,7 +132,7 @@ window.ocorrenciasModule = (function() {
             await window.supabaseClient.from('ocorrencias').insert([ocorrenciaData]);
             utils.showAlert('Ocorrência registrada no banco!', 'success');
         }
-
+        
         await loadOcorrencias();
         closeModal();
         updateSystemViews();
