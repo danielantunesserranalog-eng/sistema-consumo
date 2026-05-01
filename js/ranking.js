@@ -3,31 +3,31 @@ window.rankingModule = (function() {
         const drivers = window.driversModule ? window.driversModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
         
-        // Função para converter qualquer vírgula em ponto de forma 100% segura
         const parseNumber = (val) => {
             if (!val) return 0;
             return parseFloat(String(val).replace(',', '.')) || 0;
         };
         
-        const goal = window.settingsModule ? parseNumber(window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const goal = window.settingsModule ? parseNumber(window.settingsModule.get().globalGoal || 1.8) : 1.8;
         
         const getColor = (kml) => {
             const numKml = parseNumber(kml);
             if (numKml <= 0) return '#94a3b8';
-            if (numKml >= goal) return '#10b981'; // Maior ou igual = Verde
-            return '#f87171'; // Menor = Vermelho
+            
+            const roundedKml = Number(numKml.toFixed(2));
+            const roundedGoal = Number(goal.toFixed(2));
+            
+            if (roundedKml >= roundedGoal) return '#10b981'; 
+            return '#f87171'; 
         };
         
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
-
         const DISTANCIA_MINIMA_QUALIFICACAO = 1000; 
         
         const eligibleDrivers = drivers.filter(driver => {
-            if ((driver.total_distance || 0) < DISTANCIA_MINIMA_QUALIFICACAO) {
-                return false;
-            }
+            if ((driver.total_distance || 0) < DISTANCIA_MINIMA_QUALIFICACAO) return false;
             const hasOcorrenciaMes = ocorrencias.some(oc => {
                 if (oc.motorista === driver.name) {
                     const ocDate = new Date(oc.data + 'T00:00:00');
@@ -40,7 +40,6 @@ window.rankingModule = (function() {
 
         const maxDistance = Math.max(...eligibleDrivers.map(d => d.total_distance || 0), 1);
         const maxKML = Math.max(...eligibleDrivers.map(d => d.avg_economy || 0), 1);
-
         const PESO_KML = 0.70;
         const PESO_DIST = 0.30;
 
@@ -58,12 +57,7 @@ window.rankingModule = (function() {
         if (!rankingContainer) return;
         
         if (sortedDrivers.length === 0) {
-            rankingContainer.innerHTML = `
-                <div style="text-align: center; padding: 3rem; color: #94a3b8;">
-                    <i class="fas fa-trophy" style="font-size: 3rem; color: #3b82f6; margin-bottom: 1rem;"></i>
-                    <p>Nenhum motorista elegível para o Hall da Fama neste mês.</p>
-                </div>
-            `;
+            rankingContainer.innerHTML = `<div style="text-align: center; padding: 3rem; color: #94a3b8;"><i class="fas fa-trophy" style="font-size: 3rem; color: #3b82f6; margin-bottom: 1rem;"></i><p>Nenhum motorista elegível para o Hall da Fama neste mês.</p></div>`;
             return;
         }
         
@@ -90,7 +84,6 @@ window.rankingModule = (function() {
                 </div>
             `;
         });
-        
         html += '</div></div>';
         
         const remaining = sortedDrivers.slice(3);
@@ -113,7 +106,6 @@ window.rankingModule = (function() {
             });
             html += '</div>';
         }
-        
         rankingContainer.innerHTML = html;
     }
     

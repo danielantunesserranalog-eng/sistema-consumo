@@ -1,19 +1,32 @@
 window.settingsModule = (function() {
-    let settings = { pointsPerEconomy: 10, penaltyPerOccurrence: 100, resetMonthly: false, globalGoal: 3.0 };
+    let settings = { pointsPerEconomy: 10, penaltyPerOccurrence: 100, resetMonthly: false, globalGoal: 1.8 };
     let dbId = null; 
 
     async function load() {
         const { data, error } = await window.supabaseClient.from('configuracoes').select('*').limit(1);
+        
+        // Backup no navegador caso o banco de dados falhe
+        let backupGoal = localStorage.getItem('sys_meta_geral');
+        
         if (!error && data && data.length > 0) {
             dbId = data[0].id;
-            // Tratamento para garantir que ele leia do banco mesmo se tiver vírgula
-            const rawGoal = String(data[0].global_goal || '3.0').replace(',', '.');
+            let dbGoal = data[0].global_goal;
+            let finalGoal = 1.8; 
+            
+            if (dbGoal !== undefined && dbGoal !== null) {
+                finalGoal = parseFloat(String(dbGoal).replace(',', '.'));
+            } else if (backupGoal) {
+                finalGoal = parseFloat(backupGoal);
+            }
+
             settings = {
-                pointsPerEconomy: parseFloat(data[0].points_per_economy),
-                penaltyPerOccurrence: parseFloat(data[0].penalty_per_occurrence),
-                resetMonthly: data[0].reset_monthly,
-                globalGoal: parseFloat(rawGoal)
+                pointsPerEconomy: parseFloat(data[0].points_per_economy || 10),
+                penaltyPerOccurrence: parseFloat(data[0].penalty_per_occurrence || 100),
+                resetMonthly: data[0].reset_monthly || false,
+                globalGoal: finalGoal
             };
+        } else if (backupGoal) {
+            settings.globalGoal = parseFloat(backupGoal);
         }
         
         const pointsInput = document.getElementById('points-per-economy');
@@ -31,16 +44,20 @@ window.settingsModule = (function() {
         const penaltyInput = document.getElementById('penalty-per-occurrence').value;
         const resetSelect = document.getElementById('reset-score').value === 'true';
         
-        // Blindagem: Troca vírgula por ponto antes de salvar
+        // Força a conversão de vírgula para ponto
         const rawGoalInput = document.getElementById('global-goal').value;
         const safeGoalInput = String(rawGoalInput).replace(',', '.');
+        const parsedGoal = parseFloat(safeGoalInput);
 
         settings = {
             pointsPerEconomy: parseFloat(pointsInput),
             penaltyPerOccurrence: parseFloat(penaltyInput),
             resetMonthly: resetSelect,
-            globalGoal: parseFloat(safeGoalInput) || 3.0
+            globalGoal: isNaN(parsedGoal) ? 1.8 : parsedGoal
         };
+
+        // Salva backup de segurança no navegador
+        localStorage.setItem('sys_meta_geral', settings.globalGoal);
 
         const dbPayload = {
             points_per_economy: settings.pointsPerEconomy,
@@ -56,16 +73,14 @@ window.settingsModule = (function() {
             if (data && data.length > 0) dbId = data[0].id;
         }
 
-        if (window.driversModule) {
-            window.driversModule.updateScores();
-        }
-        utils.showAlert('Configurações salvas no Supabase com sucesso!', 'success');
+        if (window.driversModule) window.driversModule.updateScores();
+        utils.showAlert('Configurações salvas com sucesso!', 'success');
     }
 
     function get() { return settings; }
 
     async function clearAllData() {
-        if (confirm("ATENÇÃO: Você está prestes a apagar TODAS as viagens importadas do banco de dados.\n\nOs cadastros de Motoristas, Cavalos e Ocorrências NÃO SERÃO ALTERADOS. Deseja continuar?")) {
+        if (confirm("ATENÇÃO: Você está prestes a apagar TODAS as viagens importadas.\nDeseja continuar?")) {
             await window.supabaseClient.from('viagens').delete().neq('id', 0);
             utils.showAlert('Todas as viagens foram apagadas com sucesso.', 'success');
             setTimeout(() => { window.location.reload(); }, 1500);

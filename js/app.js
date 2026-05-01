@@ -45,7 +45,7 @@ window.app = (function() {
             if (window.driversModule) await window.driversModule.load();
             if (window.rankingModule) window.rankingModule.render();
         }
-        else if (isPage('auditoria')) { // CARREGA A NOVA TELA GERENCIAL
+        else if (isPage('auditoria')) {
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.auditoriaModule) window.auditoriaModule.render();
@@ -60,11 +60,20 @@ window.app = (function() {
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
         const cavalos = window.cavalosModule ? window.cavalosModule.getAll() : [];
         
-        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const parseNumber = (val) => {
+            if (!val) return 0;
+            return parseFloat(String(val).replace(',', '.')) || 0;
+        };
+        const goal = window.settingsModule ? parseNumber(window.settingsModule.get().globalGoal || 1.8) : 1.8;
         
         const getColor = (kml) => {
-            const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
-            return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+            const numKml = parseNumber(kml);
+            if (numKml <= 0) return '#94a3b8';
+
+            const roundedKml = Number(numKml.toFixed(2));
+            const roundedGoal = Number(goal.toFixed(2));
+            
+            return roundedKml >= roundedGoal ? '#10b981' : '#f87171';
         };
 
         if (filterSelect && filterSelect.options.length <= 1) {
