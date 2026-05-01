@@ -3,7 +3,7 @@ window.driversModule = (function() {
     let editingId = null;
 
     async function loadDrivers() {
-        const { data, error } = await window.supabaseClient.from('motoristas').select('*').order('created_at', { ascending: false });
+        const { data, error } = await window.supabaseClient.from('motoristas').select('*');
         if (!error && data) {
             drivers = data;
         }
@@ -11,19 +11,42 @@ window.driversModule = (function() {
         return drivers;
     }
 
+    // Função que é ativada sempre que você digita no campo de busca
+    function filterDrivers() {
+        renderDrivers();
+    }
+
     function renderDrivers() {
         const tbody = document.getElementById('drivers-list');
         if (!tbody) return;
         
-        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        // Mantendo a blindagem de vírgulas nas cores que fizemos ontem
+        const parseNumber = (val) => {
+            if (!val) return 0;
+            return parseFloat(String(val).replace(',', '.')) || 0;
+        };
+        const goal = window.settingsModule ? parseNumber(window.settingsModule.get().globalGoal || 1.8) : 1.8;
         
-        // CORREÇÃO AQUI
         const getColor = (kml) => {
-            const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
-            return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+            const numKml = parseNumber(kml);
+            if (numKml <= 0) return '#94a3b8';
+            
+            const roundedKml = Number(numKml.toFixed(2));
+            const roundedGoal = Number(goal.toFixed(2));
+            return roundedKml >= roundedGoal ? '#10b981' : '#f87171';
         };
 
-        tbody.innerHTML = drivers.map(driver => `
+        // 1. Pega o texto que o usuário digitou na busca
+        const searchInput = document.getElementById('search-driver');
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        
+        // 2. Filtra os motoristas se houver algo digitado
+        let displayDrivers = drivers.filter(d => (d.name || '').toLowerCase().includes(searchTerm));
+
+        // 3. Ordena os motoristas em Ordem Alfabética (de A a Z)
+        displayDrivers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        tbody.innerHTML = displayDrivers.map(driver => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(driver.name)}</td>
                 <td>${utils.formatCPF(driver.cpf)}</td>
@@ -40,6 +63,11 @@ window.driversModule = (function() {
                 </td>
             </tr>
         `).join('');
+        
+        // Mensagem caso pesquise um motorista que não existe
+        if (displayDrivers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding: 20px; color: #94a3b8;"><i class="fas fa-search" style="margin-right: 8px;"></i> Nenhum motorista encontrado com este nome</td></tr>';
+        }
     }
 
     function escapeHtml(text) {
@@ -184,6 +212,7 @@ window.driversModule = (function() {
         delete: deleteDriver, 
         addOccurrence, 
         updateScores: updateAllScores, 
-        updateDriverScore 
+        updateDriverScore,
+        filterDrivers // Expoe a função de busca
     };
 })();
