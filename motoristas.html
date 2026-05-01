@@ -21,7 +21,7 @@
                         <h3 style="margin: 0;"><i class="fas fa-address-card"></i> Cadastro de Motoristas</h3>
                         
                         <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                            <!-- CAMPO DE BUSCA NOVO -->
+                            <!-- CAMPO DE BUSCA -->
                             <div style="position: relative; min-width: 250px;">
                                 <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b;"></i>
                                 <input type="text" id="search-driver" onkeyup="window.driversModule.filterDrivers()" placeholder="Buscar por nome..." class="form-control filter-input" style="width: 100%; padding-left: 36px;">
@@ -36,7 +36,15 @@
                     <div class="table-wrapper">
                         <table>
                             <thead>
-                                <tr><th>Nome</th><th>CPF</th><th>Matrícula</th><th>Pontuação</th><th>Ocorrências</th><th>Média KM/L</th><th>Ações</th></tr>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>CPF</th>
+                                    <th>KM Total</th> <!-- Alterado de Matrícula para KM Total -->
+                                    <th>Pontuação</th>
+                                    <th>Ocorrências</th>
+                                    <th>Média KM/L</th>
+                                    <th>Ações</th>
+                                </tr>
                             </thead>
                             <tbody id="drivers-list"></tbody>
                         </table>
@@ -57,7 +65,7 @@
                 <form id="driver-form">
                     <div class="form-group"><label>Nome Completo</label><input type="text" id="driver-name" required class="form-control filter-input" style="width: 100%;"></div>
                     <div class="form-group" style="margin-top: 15px;"><label>CPF</label><input type="text" id="driver-cpf" required class="form-control filter-input" style="width: 100%;" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}"></div>
-                    <div class="form-group" style="margin-top: 15px;"><label>Matrícula</label><input type="text" id="driver-matricula" required class="form-control filter-input" style="width: 100%;"></div>
+                    <div class="form-group" style="margin-top: 15px;"><label>Matrícula (Interno)</label><input type="text" id="driver-matricula" required class="form-control filter-input" style="width: 100%;"></div>
                     
                     <div class="modal-footer" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
                         <button type="button" class="btn-secondary" onclick="window.driversModule.closeModal()">Cancelar</button>
@@ -75,11 +83,8 @@
     <script src="js/config.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/trips.js"></script>
-    
-    <!-- CORREÇÃO: Scripts de dependência inseridos para o cálculo em tempo real funcionar -->
     <script src="js/ocorrencias.js"></script>
     <script src="js/cavalos.js"></script>
-    
     <script src="js/drivers.js"></script>
     <script src="js/app.js"></script>
 </body>

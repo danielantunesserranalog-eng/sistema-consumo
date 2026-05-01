@@ -40,44 +40,44 @@ window.driversModule = (function() {
         let displayDrivers = drivers.filter(d => (d.name || '').toLowerCase().includes(searchTerm));
         displayDrivers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-        // Pegando os dados globais para o cálculo dinâmico (Carregados pelo app.js agora)
+        // Pegando os dados globais para o cálculo dinâmico
         const allTrips = window.tripsModule ? window.tripsModule.getAll() : [];
         const allOcorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
 
         tbody.innerHTML = displayDrivers.map(driver => {
-            // Filtrando os dados reais e calculando na hora
+            // Filtrando viagens e ocorrências para este motorista específico
             const dTrips = allTrips.filter(t => t.motorista === driver.name);
             const dOcorrencias = allOcorrencias.filter(oc => oc.motorista === driver.name);
 
-            let dist = 0;
-            let fuel = 0;
+            let distTotal = 0;
+            let fuelTotal = 0;
             let rawScore = 0;
 
             dTrips.forEach(t => {
-                dist += parseFloat(t.distancia_km) || 0;
-                fuel += parseFloat(t.total_litros) || 0;
+                distTotal += parseFloat(t.distancia_km) || 0;
+                fuelTotal += parseFloat(t.total_litros) || 0;
                 const kml = parseFloat(t.kml);
                 if (!isNaN(kml)) rawScore += kml * settings.pointsPerEconomy;
             });
 
-            // Une as ocorrências do botão manual com as da tabela de ocorrências real
-            const totalOcorrencias = Math.max(dOcorrencias.length, driver.occurrences || 0);
+            // Contagem de ocorrências (Tabela + Manual)
+            const countOcorrencias = Math.max(dOcorrencias.length, driver.occurrences || 0);
 
-            const avgEconomy = fuel > 0 ? dist / fuel : 0;
-            const finalScore = Math.max(0, Math.round(rawScore - (totalOcorrencias * settings.penaltyPerOccurrence)));
+            const avgEconomy = fuelTotal > 0 ? distTotal / fuelTotal : 0;
+            const finalScore = Math.max(0, Math.round(rawScore - (countOcorrencias * settings.penaltyPerOccurrence)));
 
             return `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(driver.name)}</td>
                 <td>${utils.formatCPF(driver.cpf)}</td>
-                <td>${driver.matricula}</td>
+                <td style="font-weight: 600; color: #38bdf8;">${utils.formatNumber(distTotal, 0)} km</td> <!-- Nova exibição da KM Total -->
                 <td><span class="status-badge success">${finalScore} pts</span></td>
-                <td><span class="status-badge warning">${totalOcorrencias}</span></td>
+                <td><span class="status-badge warning">${countOcorrencias}</span></td>
                 <td style="color: ${getColor(avgEconomy)}; font-weight: 600;">${avgEconomy > 0 ? utils.formatNumber(avgEconomy) : '0.00'} km/L</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn-primary btn-sm btn-icon" title="Editar" onclick="window.driversModule.edit(${driver.id})"><i class="fas fa-edit"></i></button>
-                        <button class="btn-danger btn-sm btn-icon" style="background: #f59e0b;" title="Adicionar Ocorrência Rápida" onclick="window.driversModule.addOccurrence(${driver.id})"><i class="fas fa-exclamation-triangle"></i></button>
+                        <button class="btn-danger btn-sm btn-icon" style="background: #f59e0b;" title="Adicionar Ocorrência" onclick="window.driversModule.addOccurrence(${driver.id})"><i class="fas fa-exclamation-triangle"></i></button>
                         <button class="btn-danger btn-sm btn-icon" title="Excluir" onclick="window.driversModule.delete(${driver.id})"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
@@ -86,7 +86,7 @@ window.driversModule = (function() {
         }).join('');
         
         if (displayDrivers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding: 20px; color: #94a3b8;"><i class="fas fa-search" style="margin-right: 8px;"></i> Nenhum motorista encontrado com este nome</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding: 20px; color: #94a3b8;"><i class="fas fa-search" style="margin-right: 8px;"></i> Nenhum motorista encontrado</td></tr>';
         }
     }
 
@@ -143,7 +143,7 @@ window.driversModule = (function() {
             driverData.last_reset = new Date().toISOString();
             
             await window.supabaseClient.from('motoristas').insert([driverData]);
-            utils.showAlert('Motorista cadastrado no banco de dados!', 'success');
+            utils.showAlert('Motorista cadastrado!', 'success');
         }
         
         await loadDrivers();
@@ -154,10 +154,10 @@ window.driversModule = (function() {
     }
 
     async function deleteDriver(id) {
-        if (confirm('Tem certeza que deseja excluir este motorista do banco de dados?')) {
+        if (confirm('Tem certeza que deseja excluir este motorista?')) {
             await window.supabaseClient.from('motoristas').delete().eq('id', id);
             await loadDrivers();
-            utils.showAlert('Motorista excluído com sucesso!', 'success');
+            utils.showAlert('Motorista excluído!', 'success');
             if (window.tripsModule) window.tripsModule.updateDriverStats();
         }
     }
@@ -169,7 +169,7 @@ window.driversModule = (function() {
             await window.supabaseClient.from('motoristas').update({ occurrences: driver.occurrences }).eq('id', driver.id);
             await updateDriverScore(driver);
             await loadDrivers();
-            utils.showAlert(`Ocorrência manual adicionada para ${driver.name}!`, 'warning');
+            utils.showAlert(`Ocorrência adicionada para ${driver.name}!`, 'warning');
             if (window.rankingModule) window.rankingModule.render();
             if (window.app) window.app.updateDashboard();
         }
@@ -203,7 +203,6 @@ window.driversModule = (function() {
             payload.score = 0;
             payload.occurrences = 0;
             payload.last_reset = new Date().toISOString();
-            utils.showAlert(`Pontuação de ${driver.name} foi resetada para o novo mês!`, 'info');
         }
         
         await window.supabaseClient.from('motoristas').update(payload).eq('id', driver.id);
