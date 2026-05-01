@@ -13,18 +13,27 @@ window.rankingModule = (function() {
             const roundedGoal = Number(goal.toFixed(2));
             
             if (roundedKml >= roundedGoal) {
-                return '#10b981'; // Verde se bateu a meta
+                return '#10b981'; 
             } else {
-                return '#f87171'; // Vermelho se não bateu
+                return '#f87171'; 
             }
         };
         
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
+
+        // === NOVA REGRA DE CORTE ===
+        // Motoristas precisam rodar pelo menos essa quilometragem para entrar no Hall da Fama
+        const DISTANCIA_MINIMA_QUALIFICACAO = 1000; 
         
-        // 1. Filtra quem não tem ocorrências no mês atual
+        // 1. Filtra quem tem o mínimo de km e não tem ocorrências no mês atual
         const eligibleDrivers = drivers.filter(driver => {
+            // Elimina quem não atingiu a quilometragem mínima no mês
+            if ((driver.total_distance || 0) < DISTANCIA_MINIMA_QUALIFICACAO) {
+                return false;
+            }
+
             const hasOcorrenciaMes = ocorrencias.some(oc => {
                 if (oc.motorista === driver.name) {
                     const ocDate = new Date(oc.data + 'T00:00:00');
@@ -36,20 +45,16 @@ window.rankingModule = (function() {
         });
 
         // 2. LÓGICA DA MÉDIA PONDERADA (Índice de Desempenho)
-        // Encontra as maiores marcas do mês para criar um teto de comparação (100%)
         const maxDistance = Math.max(...eligibleDrivers.map(d => d.total_distance || 0), 1);
         const maxKML = Math.max(...eligibleDrivers.map(d => d.avg_economy || 0), 1);
 
-        // Pesos da Balança: 70% Média de Combustível, 30% Distância Percorrida
         const PESO_KML = 0.70;
         const PESO_DIST = 0.30;
 
         eligibleDrivers.forEach(d => {
-            // Compara o motorista atual com o melhor do mês em cada categoria
             const kmlRatio = (d.avg_economy || 0) / maxKML;
             const distRatio = (d.total_distance || 0) / maxDistance;
             
-            // Gera uma nota final de 0 a 1000 pontos
             d.indiceDesempenho = Math.round(((kmlRatio * PESO_KML) + (distRatio * PESO_DIST)) * 1000);
         });
         
