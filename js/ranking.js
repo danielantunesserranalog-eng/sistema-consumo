@@ -3,20 +3,28 @@ window.rankingModule = (function() {
         const drivers = window.driversModule ? window.driversModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
         
-        const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
+        const goal = window.settingsModule ? parseFloat(window.settingsModule.get().globalGoal || 3.0) : 3.0;
         
         const getColor = (kml) => {
-            const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
-            return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
+            const numKml = parseFloat(kml) || 0;
+            if (numKml <= 0) return '#94a3b8';
+            
+            const roundedKml = Number(numKml.toFixed(2));
+            const roundedGoal = Number(goal.toFixed(2));
+            
+            if (roundedKml >= roundedGoal) {
+                return '#10b981'; // Verde se bateu a meta
+            } else {
+                return '#f87171'; // Vermelho se não bateu
+            }
         };
         
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
         
+        // 1. Filtra quem não tem ocorrências no mês atual
         const eligibleDrivers = drivers.filter(driver => {
-            // A verificação antiga (if (driver.occurrences > 0) return false;) foi removida
-            // Agora o sistema garante que só desclassifica se a ocorrência for deste mês
             const hasOcorrenciaMes = ocorrencias.some(oc => {
                 if (oc.motorista === driver.name) {
                     const ocDate = new Date(oc.data + 'T00:00:00');
@@ -26,9 +34,28 @@ window.rankingModule = (function() {
             });
             return !hasOcorrenciaMes;
         });
+
+        // 2. LÓGICA DA MÉDIA PONDERADA (Índice de Desempenho)
+        // Encontra as maiores marcas do mês para criar um teto de comparação (100%)
+        const maxDistance = Math.max(...eligibleDrivers.map(d => d.total_distance || 0), 1);
+        const maxKML = Math.max(...eligibleDrivers.map(d => d.avg_economy || 0), 1);
+
+        // Pesos da Balança: 70% Média de Combustível, 30% Distância Percorrida
+        const PESO_KML = 0.70;
+        const PESO_DIST = 0.30;
+
+        eligibleDrivers.forEach(d => {
+            // Compara o motorista atual com o melhor do mês em cada categoria
+            const kmlRatio = (d.avg_economy || 0) / maxKML;
+            const distRatio = (d.total_distance || 0) / maxDistance;
+            
+            // Gera uma nota final de 0 a 1000 pontos
+            d.indiceDesempenho = Math.round(((kmlRatio * PESO_KML) + (distRatio * PESO_DIST)) * 1000);
+        });
         
+        // 3. Ordena usando o novo Índice Ponderado (do maior para o menor)
         const sortedDrivers = [...eligibleDrivers]
-            .sort((a, b) => (b.score || 0) - (a.score || 0))
+            .sort((a, b) => (b.indiceDesempenho || 0) - (a.indiceDesempenho || 0))
             .slice(0, 10);
             
         const rankingContainer = document.getElementById('ranking-list');
@@ -61,7 +88,7 @@ window.rankingModule = (function() {
                     <div class="podium-name">${escapeHtml(d.name)}</div>
                     <div class="podium-kml" style="color: ${getColor(d.avg_economy)};">${utils.formatNumber(d.avg_economy)} <span style="font-size: 1rem; color: #94a3b8;">km/L</span></div>
                     <div class="podium-stats">
-                        <div class="p-stat"><span>Pontos</span><strong>${Math.round(d.score || 0)}</strong></div>
+                        <div class="p-stat"><span>Índice</span><strong>${d.indiceDesempenho} pts</strong></div>
                         <div class="p-stat"><span>Distância</span><strong>${utils.formatNumber(d.total_distance, 0)} km</strong></div>
                     </div>
                 </div>
@@ -84,7 +111,7 @@ window.rankingModule = (function() {
                                 <span><i class="fas fa-road"></i> ${utils.formatNumber(driver.total_distance, 0)} km</span>
                             </div>
                         </div>
-                        <div class="ranking-list-score">${Math.round(driver.score || 0)} pts</div>
+                        <div class="ranking-list-score" title="Índice Ponderado">${driver.indiceDesempenho} pts</div>
                     </div>
                 `;
             });
