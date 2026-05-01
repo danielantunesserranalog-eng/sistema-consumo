@@ -162,17 +162,39 @@ window.app = (function() {
             cavaloStats[p].liters += parseFloat(t.total_litros) || 0;
         });
 
+        // Monta o array dos cavalos procurando as carretas no cadastro
         const cavaloArray = Object.keys(cavaloStats).map(placa => {
             const stat = cavaloStats[placa];
             const kml = stat.liters > 0 ? (stat.distance / stat.liters) : 0;
             const cav = cavalos.find(c => c.placa === placa);
-            const conjuntoLabel = cav ? cav.conjunto : '-';
-            return { placa, conjunto: conjuntoLabel, distance: stat.distance, liters: stat.liters, kml };
+            
+            let carretasLabel = 'Sem carretas vinculadas';
+            
+            if (cav) {
+                // Puxa as 3 carretas e remove as que estiverem vazias
+                const listaCarretas = [cav.carreta1, cav.carreta2, cav.carreta3].filter(c => c && c.trim() !== '');
+                
+                if (listaCarretas.length > 0) {
+                    carretasLabel = listaCarretas.join(' / ');
+                }
+            }
+            
+            return { placa, carretas: carretasLabel, distance: stat.distance, liters: stat.liters, kml };
         }).filter(c => c.distance > 0).sort((a, b) => b.kml - a.kml);
 
+        // Atualiza a tabela jogando as carretas na tela
         const dashCavalosTbody = document.getElementById('dash-cavalos-list');
         if (dashCavalosTbody) {
-            dashCavalosTbody.innerHTML = cavaloArray.map(c => `<tr><td><strong style="color:#f8fafc;">${c.placa}</strong> <br><span style="font-size: 0.75rem; color: #94a3b8;">Conjunto: ${c.conjunto}</span></td><td>${utils.formatNumber(c.distance, 0)}</td><td style="color: ${getColor(c.kml)}; font-weight: bold;">${utils.formatNumber(c.kml)}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
+            dashCavalosTbody.innerHTML = cavaloArray.map(c => `
+                <tr>
+                    <td>
+                        <strong style="color:#f8fafc;">${c.placa}</strong> <br>
+                        <span style="font-size: 0.75rem; color: #94a3b8;"><i class="fas fa-link" style="margin-right: 4px; font-size: 0.65rem;"></i>${c.carretas}</span>
+                    </td>
+                    <td>${utils.formatNumber(c.distance, 0)}</td>
+                    <td style="color: ${getColor(c.kml)}; font-weight: bold;">${utils.formatNumber(c.kml)}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
         }
     }
 
