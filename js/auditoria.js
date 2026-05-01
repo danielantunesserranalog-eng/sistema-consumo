@@ -11,17 +11,22 @@ window.auditoriaModule = (function() {
     function render() {
         const drivers = window.driversModule ? window.driversModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
-        const goal = window.settingsModule ? parseFloat(window.settingsModule.get().globalGoal || 3.0) : 3.0;
         
-        const getColor = (kml) => {
-            const numKml = parseFloat(kml) || 0;
-            if (numKml <= 0) return '#94a3b8';
-            const roundedKml = Number(numKml.toFixed(2));
-            const roundedGoal = Number(goal.toFixed(2));
-            if (roundedKml >= roundedGoal) return '#10b981'; 
-            else return '#f87171'; 
+        // Função para converter qualquer vírgula em ponto de forma 100% segura
+        const parseNumber = (val) => {
+            if (!val) return 0;
+            return parseFloat(String(val).replace(',', '.')) || 0;
         };
-        
+
+        const goal = window.settingsModule ? parseNumber(window.settingsModule.get().globalGoal || 3.0) : 3.0;
+
+        const getColor = (kml) => {
+            const numKml = parseNumber(kml);
+            if (numKml <= 0) return '#94a3b8';
+            if (numKml >= goal) return '#10b981'; // Maior ou igual = Verde
+            return '#f87171'; // Menor = Vermelho
+        };
+
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();

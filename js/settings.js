@@ -1,16 +1,18 @@
 window.settingsModule = (function() {
     let settings = { pointsPerEconomy: 10, penaltyPerOccurrence: 100, resetMonthly: false, globalGoal: 3.0 };
-    let dbId = null; // Guarda o ID do banco se existir
+    let dbId = null; 
 
     async function load() {
         const { data, error } = await window.supabaseClient.from('configuracoes').select('*').limit(1);
         if (!error && data && data.length > 0) {
             dbId = data[0].id;
+            // Tratamento para garantir que ele leia do banco mesmo se tiver vírgula
+            const rawGoal = String(data[0].global_goal || '3.0').replace(',', '.');
             settings = {
                 pointsPerEconomy: parseFloat(data[0].points_per_economy),
                 penaltyPerOccurrence: parseFloat(data[0].penalty_per_occurrence),
                 resetMonthly: data[0].reset_monthly,
-                globalGoal: parseFloat(data[0].global_goal || 3.0)
+                globalGoal: parseFloat(rawGoal)
             };
         }
         
@@ -18,7 +20,6 @@ window.settingsModule = (function() {
         const penaltyInput = document.getElementById('penalty-per-occurrence');
         const resetSelect = document.getElementById('reset-score');
         const goalInput = document.getElementById('global-goal');
-
         if (pointsInput) pointsInput.value = settings.pointsPerEconomy;
         if (penaltyInput) penaltyInput.value = settings.penaltyPerOccurrence;
         if (resetSelect) resetSelect.value = settings.resetMonthly;
@@ -29,13 +30,16 @@ window.settingsModule = (function() {
         const pointsInput = document.getElementById('points-per-economy').value;
         const penaltyInput = document.getElementById('penalty-per-occurrence').value;
         const resetSelect = document.getElementById('reset-score').value === 'true';
-        const goalInput = document.getElementById('global-goal').value;
+        
+        // Blindagem: Troca vírgula por ponto antes de salvar
+        const rawGoalInput = document.getElementById('global-goal').value;
+        const safeGoalInput = String(rawGoalInput).replace(',', '.');
 
         settings = {
             pointsPerEconomy: parseFloat(pointsInput),
             penaltyPerOccurrence: parseFloat(penaltyInput),
             resetMonthly: resetSelect,
-            globalGoal: parseFloat(goalInput)
+            globalGoal: parseFloat(safeGoalInput) || 3.0
         };
 
         const dbPayload = {
@@ -55,7 +59,6 @@ window.settingsModule = (function() {
         if (window.driversModule) {
             window.driversModule.updateScores();
         }
-
         utils.showAlert('Configurações salvas no Supabase com sucesso!', 'success');
     }
 
