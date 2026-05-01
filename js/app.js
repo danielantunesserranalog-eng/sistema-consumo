@@ -30,6 +30,10 @@ window.app = (function() {
             if (window.cavalosModule) await window.cavalosModule.load();
         }
         else if (isPage('motoristas')) {
+            // CORREÇÃO AQUI: Forçando o carregamento das Viagens e Ocorrências 
+            // para que o cálculo da média e pontuação funcione!
+            if (window.tripsModule) await window.tripsModule.load();
+            if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
         }
         else if (isPage('ocorrencias')) {
@@ -41,13 +45,13 @@ window.app = (function() {
             if (window.tripsModule) await window.tripsModule.load(); 
         }
         else if (isPage('ranking')) {
-            if (window.tripsModule) await window.tripsModule.load(); // AQUI: Força o carregamento do histórico
+            if (window.tripsModule) await window.tripsModule.load(); 
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.rankingModule) window.rankingModule.render();
         }
         else if (isPage('auditoria')) {
-            if (window.tripsModule) await window.tripsModule.load(); // AQUI: Força o carregamento do histórico
+            if (window.tripsModule) await window.tripsModule.load(); 
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.auditoriaModule) window.auditoriaModule.render();
@@ -71,7 +75,6 @@ window.app = (function() {
         const getColor = (kml) => {
             const numKml = parseNumber(kml);
             if (numKml <= 0) return '#94a3b8';
-
             const roundedKml = Number(numKml.toFixed(2));
             const roundedGoal = Number(goal.toFixed(2));
             
@@ -124,7 +127,6 @@ window.app = (function() {
             const kml = stat.liters > 0 ? (stat.distance / stat.liters) : 0;
             return { name, distance: stat.distance, liters: stat.liters, kml };
         }).filter(d => d.distance > 0);
-
         driverArray.sort((a, b) => b.kml - a.kml);
 
         if (topDriverEl) {

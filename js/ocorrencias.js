@@ -1,15 +1,25 @@
 window.ocorrenciasModule = (function() {
     let ocorrencias = [];
     let editingId = null;
-    let chartInstance = null; // Instância global do gráfico Chart.js
+    let chartInstance = null; 
 
     async function loadOcorrencias() {
-        const { data, error } = await window.supabaseClient.from('ocorrencias').select('*').order('created_at', { ascending: false });
-        if (!error && data) {
-            ocorrencias = data;
+        try {
+            // Removida a ordenação pelo Supabase para evitar bloqueios caso a coluna não exista
+            const { data, error } = await window.supabaseClient.from('ocorrencias').select('*');
+            
+            if (error) {
+                console.error("Erro ao carregar ocorrências do Supabase:", error);
+            }
+            if (data) {
+                ocorrencias = data;
+            }
+        } catch(e) {
+            console.error("Erro na comunicação com o banco:", e);
         }
+
         renderOcorrencias();
-        renderDashboard(); // Preenche o select do mês e atualiza o gráfico
+        renderDashboard(); 
         return ocorrencias;
     }
 
@@ -17,19 +27,29 @@ window.ocorrenciasModule = (function() {
         const tbody = document.getElementById('ocorrencias-list');
         if (!tbody) return;
 
-        // Ordenar do mais recente para o mais antigo (Data e Hora)
+        if (ocorrencias.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 20px; color: #94a3b8;">Nenhuma ocorrência registrada no sistema.</td></tr>';
+            return;
+        }
+
+        // Ordenação segura feita diretamente no JavaScript
         const sortedOcorrencias = [...ocorrencias].sort((a, b) => {
-            const dateA = new Date(`${a.data}T${a.hora || '00:00'}:00`).getTime();
-            const dateB = new Date(`${b.data}T${b.hora || '00:00'}:00`).getTime();
-            return dateB - dateA;
+            const dateA = a.data ? new Date(`${a.data}T${a.hora || '00:00'}:00`).getTime() : 0;
+            const dateB = b.data ? new Date(`${b.data}T${b.hora || '00:00'}:00`).getTime() : 0;
+            return (dateB || 0) - (dateA || 0);
         });
 
         tbody.innerHTML = sortedOcorrencias.map(oc => {
-            const dataObj = new Date(oc.data + 'T00:00:00');
-            const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+            // Formatação de data à prova de falhas
+            let dataFormatada = '-';
+            if (oc.data) {
+                const partes = oc.data.split('-');
+                if (partes.length === 3) dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+            }
+
             return `
             <tr>
-                <td style="font-weight: 500; color: #f8fafc;">${dataFormatada} às ${oc.hora}</td>
+                <td style="font-weight: 500; color: #f8fafc;">${dataFormatada} às ${oc.hora || '--:--'}</td>
                 <td style="color: #e2e8f0; font-weight: 500;">${escapeHtml(oc.motorista || '-')}</td>
                 <td><span class="status-badge warning">${escapeHtml(oc.placa)}</span></td>
                 <td>${escapeHtml(oc.local)}</td>
@@ -44,14 +64,13 @@ window.ocorrenciasModule = (function() {
         }).join('');
     }
 
-    // Função auxiliar para buscar todos os meses/anos únicos que tem dados
     function getAvailableMonths() {
         const monthsSet = new Set();
         ocorrencias.forEach(oc => {
             if(oc.data) {
-                const d = new Date(oc.data + 'T00:00:00');
-                if(!isNaN(d.getTime())) {
-                    monthsSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+                const partes = oc.data.split('-');
+                if (partes.length >= 2) {
+                    monthsSet.add(`${partes[0]}-${partes[1]}`);
                 }
             }
         });
@@ -77,7 +96,7 @@ window.ocorrenciasModule = (function() {
             filterSelect.innerHTML = availableMonths.map(m => `<option value="${m}">${formatMonthStr(m)}</option>`).join('');
         }
         
-        let selectedMonth = availableMonths[0]; // Padrão: mês mais recente
+        let selectedMonth = availableMonths[0]; 
         if (filterSelect && filterSelect.value) {
             selectedMonth = filterSelect.value;
         }
@@ -86,8 +105,8 @@ window.ocorrenciasModule = (function() {
 
         const currentMonthOcorrencias = ocorrencias.filter(oc => {
             if(!oc.data) return false;
-            const d = new Date(oc.data + 'T00:00:00');
-            return d.getFullYear() == selYear && (d.getMonth() + 1) == selMonth;
+            const partes = oc.data.split('-');
+            return partes[0] == selYear && partes[1] == selMonth;
         });
 
         // 1. Atualizar KPIs do Mês
@@ -112,7 +131,7 @@ window.ocorrenciasModule = (function() {
         if (reinEl) reinEl.textContent = topMotorista[1] > 0 ? `${topMotorista[0]} (${topMotorista[1]})` : '-';
         if (localEl) localEl.textContent = topLocal[1] > 0 ? `${topLocal[0]} (${topLocal[1]})` : '-';
 
-        // 2. Preparar Dados Diários (Gráfico com zeros até o dia atual)
+        // 2. Preparar Dados Diários
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth() + 1;
@@ -125,26 +144,25 @@ window.ocorrenciasModule = (function() {
         for (let i = 1; i <= daysInMonth; i++) {
             labels.push(`${String(i).padStart(2, '0')}/${selMonth}`);
             
-            // Se for o mês atual e o dia iterado for no futuro (ex: amanhã), não traça a linha
             if (parseInt(selYear) === currentYear && parseInt(selMonth) === currentMonth && i > currentDay) {
                 dataCounts.push(null);
             } else {
-                dataCounts.push(0); // Garante o 0 para dias passados ou até hoje
+                dataCounts.push(0); 
             }
         }
 
         currentMonthOcorrencias.forEach(oc => {
-            const d = new Date(oc.data + 'T00:00:00');
-            const dayIndex = d.getDate() - 1; 
-            if (dayIndex >= 0 && dayIndex < daysInMonth && dataCounts[dayIndex] !== null) {
-                dataCounts[dayIndex]++;
+            if (oc.data) {
+                const dayIndex = parseInt(oc.data.split('-')[2]) - 1; 
+                if (dayIndex >= 0 && dayIndex < daysInMonth && dataCounts[dayIndex] !== null) {
+                    dataCounts[dayIndex]++;
+                }
             }
         });
 
         renderChart(labels, dataCounts);
     }
 
-    // Desenha o gráfico de Linhas Moderno com Valores no Topo
     function renderChart(labels, data) {
         const canvas = document.getElementById('ocorrenciasChart');
         if (!canvas) return;
@@ -152,12 +170,10 @@ window.ocorrenciasModule = (function() {
 
         if (chartInstance) chartInstance.destroy(); 
 
-        // Gradiente moderno abaixo da curva
         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)'); // Vermelho translúcido no topo
-        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.0)'); // Transparente na base
+        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)'); 
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.0)'); 
 
-        // Plugin customizado para desenhar os números no topo dos pontos
         const showValuesPlugin = {
             id: 'showValues',
             afterDatasetsDraw(chart) {
@@ -166,13 +182,12 @@ window.ocorrenciasModule = (function() {
                     const meta = chart.getDatasetMeta(i);
                     meta.data.forEach((element, index) => {
                         const val = dataset.data[index];
-                        if (val !== null && val !== undefined) { 
-                            // Destaca os dias com ocorrência em branco, e os zerados ficam mais discretos
+                        if (val !== null && val !== undefined && element && !isNaN(element.x)) { 
                             ctx.fillStyle = val > 0 ? '#f8fafc' : '#64748b'; 
                             ctx.font = val > 0 ? 'bold 13px "Inter", sans-serif' : 'normal 11px "Inter", sans-serif';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'bottom';
-                            ctx.fillText(val, element.x, element.y - 8); // Desenha logo acima do ponto
+                            ctx.fillText(val, element.x, element.y - 8); 
                         }
                     });
                 });
@@ -190,22 +205,20 @@ window.ocorrenciasModule = (function() {
                     borderWidth: 3,
                     backgroundColor: gradient,
                     fill: true,
-                    tension: 0.4, // Faz a curva suave entre os pontos
+                    tension: 0.4, 
                     pointBackgroundColor: '#1e293b',
                     pointBorderColor: '#ef4444',
                     pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 6,
-                    spanGaps: false // Impede que a linha conecte sobre os dias nulos (futuro)
+                    spanGaps: false 
                 }]
             },
             plugins: [showValuesPlugin], 
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: {
-                    padding: { top: 20 } // Dá um respiro para os números altos não cortarem
-                },
+                layout: { padding: { top: 20 } },
                 plugins: { 
                     legend: { display: false },
                     tooltip: {
@@ -229,14 +242,10 @@ window.ocorrenciasModule = (function() {
                         ticks: { stepSize: 1, color: '#64748b', font: {size: 11} },
                         grid: { color: 'rgba(51, 65, 85, 0.3)', borderDash: [5, 5] },
                         border: { display: false },
-                        suggestedMax: Math.max(...data.filter(n => n !== null)) + 1 // Ajusta o teto dinamicamente
+                        suggestedMax: Math.max(...data.filter(n => n !== null)) + 1 
                     },
                     x: { 
-                        ticks: { 
-                            color: '#94a3b8',
-                            font: {size: 10},
-                            maxTicksLimit: 15 // Evita esmagar o texto
-                        },
+                        ticks: { color: '#94a3b8', font: {size: 10}, maxTicksLimit: 15 },
                         grid: { display: false },
                         border: { display: false }
                     }
@@ -254,7 +263,6 @@ window.ocorrenciasModule = (function() {
         const select = document.getElementById('oc-placa');
         if (!select) return;
         const cavalos = window.cavalosModule ? window.cavalosModule.getAll() : [];
-        
         const sortedCavalos = [...cavalos].sort((a, b) => (a.placa || '').localeCompare(b.placa || ''));
         
         let optionsHtml = '<option value="">Selecione a placa...</option>';
@@ -268,7 +276,6 @@ window.ocorrenciasModule = (function() {
         const select = document.getElementById('oc-motorista');
         if (!select) return;
         const motoristas = window.driversModule ? window.driversModule.getAll() : [];
-        
         const sortedMotoristas = [...motoristas].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         
         let optionsHtml = '<option value="">Selecione o motorista (Opcional)...</option>';

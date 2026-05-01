@@ -11,7 +11,6 @@ window.driversModule = (function() {
         return drivers;
     }
 
-    // Função que é ativada sempre que você digita no campo de busca
     function filterDrivers() {
         renderDrivers();
     }
@@ -20,51 +19,72 @@ window.driversModule = (function() {
         const tbody = document.getElementById('drivers-list');
         if (!tbody) return;
         
-        // Mantendo a blindagem de vírgulas nas cores que fizemos ontem
         const parseNumber = (val) => {
             if (!val) return 0;
             return parseFloat(String(val).replace(',', '.')) || 0;
         };
-        const goal = window.settingsModule ? parseNumber(window.settingsModule.get().globalGoal || 1.8) : 1.8;
+        const settings = window.settingsModule ? window.settingsModule.get() : { pointsPerEconomy: 10, penaltyPerOccurrence: 100, globalGoal: 1.8 };
+        const goal = parseNumber(settings.globalGoal || 1.8);
         
         const getColor = (kml) => {
             const numKml = parseNumber(kml);
             if (numKml <= 0) return '#94a3b8';
-            
             const roundedKml = Number(numKml.toFixed(2));
             const roundedGoal = Number(goal.toFixed(2));
             return roundedKml >= roundedGoal ? '#10b981' : '#f87171';
         };
 
-        // 1. Pega o texto que o usuário digitou na busca
         const searchInput = document.getElementById('search-driver');
         const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
         
-        // 2. Filtra os motoristas se houver algo digitado
         let displayDrivers = drivers.filter(d => (d.name || '').toLowerCase().includes(searchTerm));
-
-        // 3. Ordena os motoristas em Ordem Alfabética (de A a Z)
         displayDrivers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-        tbody.innerHTML = displayDrivers.map(driver => `
+        // Pegando os dados globais para o cálculo dinâmico (Carregados pelo app.js agora)
+        const allTrips = window.tripsModule ? window.tripsModule.getAll() : [];
+        const allOcorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
+
+        tbody.innerHTML = displayDrivers.map(driver => {
+            // Filtrando os dados reais e calculando na hora
+            const dTrips = allTrips.filter(t => t.motorista === driver.name);
+            const dOcorrencias = allOcorrencias.filter(oc => oc.motorista === driver.name);
+
+            let dist = 0;
+            let fuel = 0;
+            let rawScore = 0;
+
+            dTrips.forEach(t => {
+                dist += parseFloat(t.distancia_km) || 0;
+                fuel += parseFloat(t.total_litros) || 0;
+                const kml = parseFloat(t.kml);
+                if (!isNaN(kml)) rawScore += kml * settings.pointsPerEconomy;
+            });
+
+            // Une as ocorrências do botão manual com as da tabela de ocorrências real
+            const totalOcorrencias = Math.max(dOcorrencias.length, driver.occurrences || 0);
+
+            const avgEconomy = fuel > 0 ? dist / fuel : 0;
+            const finalScore = Math.max(0, Math.round(rawScore - (totalOcorrencias * settings.penaltyPerOccurrence)));
+
+            return `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(driver.name)}</td>
                 <td>${utils.formatCPF(driver.cpf)}</td>
                 <td>${driver.matricula}</td>
-                <td><span class="status-badge success">${Math.round(driver.score || 0)} pts</span></td>
-                <td><span class="status-badge warning">${driver.occurrences || 0}</span></td>
-                <td style="color: ${getColor(driver.avg_economy)}; font-weight: 600;">${driver.avg_economy ? utils.formatNumber(driver.avg_economy) : '0.00'} km/L</td>
+                <td><span class="status-badge success">${finalScore} pts</span></td>
+                <td><span class="status-badge warning">${totalOcorrencias}</span></td>
+                <td style="color: ${getColor(avgEconomy)}; font-weight: 600;">${avgEconomy > 0 ? utils.formatNumber(avgEconomy) : '0.00'} km/L</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn-primary btn-sm btn-icon" title="Editar" onclick="window.driversModule.edit(${driver.id})"><i class="fas fa-edit"></i></button>
-                        <button class="btn-danger btn-sm btn-icon" style="background: #f59e0b;" title="Adicionar Ocorrência" onclick="window.driversModule.addOccurrence(${driver.id})"><i class="fas fa-exclamation-triangle"></i></button>
+                        <button class="btn-danger btn-sm btn-icon" style="background: #f59e0b;" title="Adicionar Ocorrência Rápida" onclick="window.driversModule.addOccurrence(${driver.id})"><i class="fas fa-exclamation-triangle"></i></button>
                         <button class="btn-danger btn-sm btn-icon" title="Excluir" onclick="window.driversModule.delete(${driver.id})"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
         
-        // Mensagem caso pesquise um motorista que não existe
         if (displayDrivers.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding: 20px; color: #94a3b8;"><i class="fas fa-search" style="margin-right: 8px;"></i> Nenhum motorista encontrado com este nome</td></tr>';
         }
@@ -149,7 +169,7 @@ window.driversModule = (function() {
             await window.supabaseClient.from('motoristas').update({ occurrences: driver.occurrences }).eq('id', driver.id);
             await updateDriverScore(driver);
             await loadDrivers();
-            utils.showAlert(`Ocorrência adicionada para ${driver.name}!`, 'warning');
+            utils.showAlert(`Ocorrência manual adicionada para ${driver.name}!`, 'warning');
             if (window.rankingModule) window.rankingModule.render();
             if (window.app) window.app.updateDashboard();
         }
@@ -213,6 +233,6 @@ window.driversModule = (function() {
         addOccurrence, 
         updateScores: updateAllScores, 
         updateDriverScore,
-        filterDrivers // Expoe a função de busca
+        filterDrivers 
     };
 })();
