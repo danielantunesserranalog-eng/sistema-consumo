@@ -91,16 +91,19 @@ window.app = (function() {
         }
 
         const totalDriversEl = document.getElementById('total-drivers');
-        const totalTripsEl = document.getElementById('total-trips');
+        const totalDistanceEl = document.getElementById('total-distance');
+        const totalLitersEl = document.getElementById('total-liters');
         const avgEconomyEl = document.getElementById('avg-economy');
         const topDriverEl = document.getElementById('top-driver');
         
+        const sumDistance = filteredTrips.reduce((sum, t) => sum + (parseFloat(t.distancia_km) || 0), 0);
+        const sumLiters = filteredTrips.reduce((sum, t) => sum + (parseFloat(t.total_litros) || 0), 0);
+
         if (totalDriversEl) totalDriversEl.textContent = drivers.length;
-        if (totalTripsEl) totalTripsEl.textContent = filteredTrips.length;
+        if (totalDistanceEl) totalDistanceEl.textContent = utils.formatNumber(sumDistance, 0) + ' km';
+        if (totalLitersEl) totalLitersEl.textContent = utils.formatNumber(sumLiters, 0) + ' L';
         
         if (avgEconomyEl) {
-            const sumDistance = filteredTrips.reduce((sum, t) => sum + (parseFloat(t.distancia_km) || 0), 0);
-            const sumLiters = filteredTrips.reduce((sum, t) => sum + (parseFloat(t.total_litros) || 0), 0);
             const globalAvg = sumLiters > 0 ? (sumDistance / sumLiters) : 0;
             avgEconomyEl.textContent = utils.formatNumber(globalAvg);
             avgEconomyEl.style.color = getColor(globalAvg);
