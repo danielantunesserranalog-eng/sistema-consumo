@@ -5,17 +5,18 @@ window.rankingModule = (function() {
         
         const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
         
-        // CORREÇÃO AQUI
         const getColor = (kml) => {
             const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
             return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
         };
-                 
+        
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
+        
         const eligibleDrivers = drivers.filter(driver => {
-            if (driver.occurrences > 0) return false;
+            // A verificação antiga (if (driver.occurrences > 0) return false;) foi removida
+            // Agora o sistema garante que só desclassifica se a ocorrência for deste mês
             const hasOcorrenciaMes = ocorrencias.some(oc => {
                 if (oc.motorista === driver.name) {
                     const ocDate = new Date(oc.data + 'T00:00:00');
@@ -25,12 +26,14 @@ window.rankingModule = (function() {
             });
             return !hasOcorrenciaMes;
         });
+        
         const sortedDrivers = [...eligibleDrivers]
             .sort((a, b) => (b.score || 0) - (a.score || 0))
             .slice(0, 10);
-                     
+            
         const rankingContainer = document.getElementById('ranking-list');
         if (!rankingContainer) return;
+        
         if (sortedDrivers.length === 0) {
             rankingContainer.innerHTML = `
                 <div style="text-align: center; padding: 3rem; color: #94a3b8;">
@@ -40,18 +43,20 @@ window.rankingModule = (function() {
             `;
             return;
         }
+        
         let html = '<div class="podium-wrapper"><div class="podium-container">';
         const top3 = sortedDrivers.slice(0, 3);
         const podiumOrder = [];
         if(top3[1]) podiumOrder.push({driver: top3[1], rank: 2});
         if(top3[0]) podiumOrder.push({driver: top3[0], rank: 1});
         if(top3[2]) podiumOrder.push({driver: top3[2], rank: 3});
+        
         podiumOrder.forEach(item => {
             const d = item.driver;
             const r = item.rank;
             html += `
                 <div class="podium-card rank-${r}">
-                    <div class="rank-badge">${r}º</div>
+                    <div class="rank-badge">${r}</div>
                     <div class="podium-avatar"><i class="fas fa-user"></i></div>
                     <div class="podium-name">${escapeHtml(d.name)}</div>
                     <div class="podium-kml" style="color: ${getColor(d.avg_economy)};">${utils.formatNumber(d.avg_economy)} <span style="font-size: 1rem; color: #94a3b8;">km/L</span></div>
@@ -62,15 +67,16 @@ window.rankingModule = (function() {
                 </div>
             `;
         });
-                 
+        
         html += '</div></div>';
+        
         const remaining = sortedDrivers.slice(3);
         if (remaining.length > 0) {
             html += '<div style="margin-top: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">';
             remaining.forEach((driver, idx) => {
                 html += `
                     <div class="ranking-list-item">
-                        <div class="ranking-list-pos">${idx + 4}º</div>
+                        <div class="ranking-list-pos">${idx + 4}</div>
                         <div class="ranking-list-info">
                             <div class="ranking-list-name">${escapeHtml(driver.name)}</div>
                             <div class="ranking-list-stats">
@@ -84,11 +90,14 @@ window.rankingModule = (function() {
             });
             html += '</div>';
         }
+        
         rankingContainer.innerHTML = html;
     }
+    
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div'); div.textContent = text; return div.innerHTML;
     }
+    
     return { render };
 })();

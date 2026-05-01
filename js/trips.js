@@ -1,43 +1,37 @@
 window.tripsModule = (function() {
     let trips = [];
-    
     let currentPageHistorico = 1;
-    const itemsPerPage = 50; 
+    const itemsPerPage = 50;
 
     async function loadTrips(startDate = null, endDate = null) {
         utils.showAlert('<i class="fas fa-circle-notch fa-spin"></i> Sincronizando base de dados. Aguarde...', 'info');
-
         let allData = [];
         let hasMore = true;
         let page = 0;
-        const pageSize = 1000; 
+        const pageSize = 1000;
 
         while (hasMore) {
-            let query = window.supabaseClient
-                .from('viagens')
-                .select('*');
-
+            let query = window.supabaseClient.from('viagens').select('*');
+            
             if (startDate && endDate) {
                 query = query.gte('inicio', startDate).lte('inicio', endDate);
             }
-
+            
             const from = page * pageSize;
             const to = from + pageSize - 1;
-
             const { data, error } = await query
                 .range(from, to)
                 .order('inicio', { ascending: false });
-
+                
             if (error) {
                 console.error("Erro ao carregar viagens:", error);
                 utils.showAlert('Erro de conexão com o banco de dados.', 'error');
                 break;
             }
-
+            
             if (data && data.length > 0) {
                 allData = allData.concat(data);
                 page++;
-                
                 if (data.length < pageSize) {
                     hasMore = false;
                 }
@@ -45,10 +39,10 @@ window.tripsModule = (function() {
                 hasMore = false;
             }
         }
-
-        trips = allData;
-        currentPageHistorico = 1; 
         
+        trips = allData;
+        currentPageHistorico = 1;
+
         renderTrips();
         renderRecentTrips();
         renderHistorico();
@@ -60,7 +54,6 @@ window.tripsModule = (function() {
         return trips;
     }
 
-    // CORREÇÃO DA COR AQUI
     function getGoalColor(kml) {
         const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
         const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
@@ -70,7 +63,7 @@ window.tripsModule = (function() {
     function renderTrips() {
         const tbody = document.getElementById('trips-list');
         if (!tbody) return;
-        
+
         const recentTrips = trips.slice(0, 20);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
@@ -81,15 +74,15 @@ window.tripsModule = (function() {
                 <td>${utils.formatDate(trip.inicio)}</td>
             </tr>
         `).join('');
-        
+
         const tripCount = document.getElementById('trip-count');
-        if (tripCount) tripCount.textContent = `${trips.length} registros válidos no mês`;
+        if (tripCount) tripCount.textContent = `${trips.length} registros válidos`;
     }
 
     function renderRecentTrips() {
         const tbody = document.getElementById('recent-trips');
         if (!tbody) return;
-        
+
         const recentTrips = trips.slice(0, 10);
         tbody.innerHTML = recentTrips.map(trip => `
             <tr>
@@ -105,17 +98,14 @@ window.tripsModule = (function() {
     function renderHistorico() {
         const tbody = document.getElementById('historico-list');
         if (!tbody) return;
-
         const totalItems = trips.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-
         if (currentPageHistorico > totalPages) currentPageHistorico = totalPages;
         if (currentPageHistorico < 1) currentPageHistorico = 1;
-
         const startIndex = (currentPageHistorico - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const tripsToRender = trips.slice(startIndex, endIndex);
-
+        
         tbody.innerHTML = tripsToRender.map(trip => `
             <tr>
                 <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(trip.motorista || '-')}</td>
@@ -126,27 +116,23 @@ window.tripsModule = (function() {
                 <td>${utils.formatNumber(trip.total_litros)}</td>
             </tr>
         `).join('');
-        
-        const countBadge = document.getElementById('historico-count');
-        if (countBadge) countBadge.textContent = `${totalItems} registros globais (Neste Mês)`;
 
+        const countBadge = document.getElementById('historico-count');
+        if (countBadge) countBadge.textContent = `${totalItems} registros globais`;
         renderPaginationControls(totalPages);
     }
 
     function renderPaginationControls(totalPages) {
         const historicoPage = document.querySelector('.content-area');
         if (!historicoPage) return;
-
         let paginationDiv = document.getElementById('historico-pagination');
         if (!paginationDiv) {
             paginationDiv = document.createElement('div');
             paginationDiv.id = 'historico-pagination';
             paginationDiv.style.cssText = 'display: flex; justify-content: center; gap: 15px; margin-top: 20px; align-items: center; padding-bottom: 20px;';
-            
             const tableCard = document.getElementById('historico-page') ? document.getElementById('historico-page').querySelector('.table-card') : document.querySelector('.table-card');
             if (tableCard) tableCard.appendChild(paginationDiv);
         }
-
         paginationDiv.innerHTML = `
             <button class="btn-secondary btn-sm" id="btn-prev-page" style="width: 100px; ${currentPageHistorico === 1 ? 'opacity: 0.5; cursor: not-allowed;' : ''}" ${currentPageHistorico === 1 ? 'disabled' : ''}>
                 <i class="fas fa-chevron-left"></i> Anterior
@@ -158,10 +144,8 @@ window.tripsModule = (function() {
                 Próxima <i class="fas fa-chevron-right"></i>
             </button>
         `;
-
         const btnPrev = document.getElementById('btn-prev-page');
         const btnNext = document.getElementById('btn-next-page');
-
         if (btnPrev) {
             btnPrev.onclick = () => {
                 if (currentPageHistorico > 1) {
@@ -170,7 +154,6 @@ window.tripsModule = (function() {
                 }
             };
         }
-
         if (btnNext) {
             btnNext.onclick = () => {
                 if (currentPageHistorico < totalPages) {
@@ -201,25 +184,20 @@ window.tripsModule = (function() {
         
         const batchSize = 500;
         let hasError = false;
-
+        
         for (let i = 0; i < supabaseData.length; i += batchSize) {
             const batch = supabaseData.slice(i, i + batchSize);
             const { error } = await window.supabaseClient.from('viagens').insert(batch);
-            
             if (error) {
                 console.error(error);
                 hasError = true;
             }
         }
-
+        
         if (hasError) {
             utils.showAlert('Ocorreu um erro ao importar alguns lotes para o banco de dados.', 'error');
         } else {
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-            
-            await loadTrips(startOfMonth, endOfMonth);
+            await loadTrips(); // Removido recarregamento mensal, carrega tudo após importação
             updateDriverStats();
             utils.showAlert(`<i class="fas fa-check-double"></i> ${supabaseData.length} viagens importadas com sucesso!`, 'success');
         }
@@ -234,7 +212,7 @@ window.tripsModule = (function() {
     function getAllTrips() { return trips; }
     
     function getDriverTrips(driverName) { return trips.filter(t => t.motorista === driverName); }
-
+    
     function setupUpload() {
         const uploadArea = document.getElementById('uploadArea');
         const excelInput = document.getElementById('excel-input');
@@ -269,7 +247,7 @@ window.tripsModule = (function() {
 
     function parseKML(val) {
         let parsed = parseExcelNumber(val);
-        if (parsed > 15) parsed = parsed / 100; 
+        if (parsed > 15) parsed = parsed / 100;
         return parsed;
     }
 
@@ -319,7 +297,6 @@ window.tripsModule = (function() {
                     const dataInicioRaw = row.Início || row.inicio || row['Data Inicial'] || row['Dt Início'];
                     const dataFimRaw = row.Fim || row.fim || row['Data Fim'] || row['Dt Fim Descar Fáb'];
                     const placaValue = row.Placa || row.placa || row['Veículo'] || row['Equipamento'] || row.Cavalo || row.cavalo || row.Frota || null;
-
                     return {
                         motorista: row.Motorista || row.motorista,
                         placa: placaValue,
@@ -332,7 +309,7 @@ window.tripsModule = (function() {
                         Carregador: row['Carregador'] || row['Carregador Florestal']
                     };
                 });
-
+                
                 const processedTrips = rawTrips.filter(trip => {
                     const motoristaNome = String(trip.motorista || '').trim().toUpperCase();
                     if (!motoristaNome || 
@@ -341,7 +318,6 @@ window.tripsModule = (function() {
                         motoristaNome === 'JULIO CESAR ALMEIDA NUNES') {
                         return false; 
                     }
-
                     const distancia = trip['Distância (Km)'];
                     if (distancia < 10) return false;
                     
@@ -356,7 +332,7 @@ window.tripsModule = (function() {
                     
                     return true;
                 });
-
+                
                 if (rawTrips.length > 0 && processedTrips.length === 0) {
                     utils.showAlert('Nenhuma viagem válida encontrada. Verifique se as regras batem (Motoristas, Transportadora e Distância).', 'warning');
                 } else if (processedTrips.length > 0) {
@@ -364,11 +340,11 @@ window.tripsModule = (function() {
                 }
             };
             reader.readAsArrayBuffer(file);
-        }, 300); 
+        }, 300);
     }
 
     document.addEventListener('DOMContentLoaded', setupUpload);
-
+    
     return { 
         load: loadTrips, 
         getAll: getAllTrips, 

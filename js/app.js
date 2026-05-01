@@ -6,19 +6,18 @@ window.app = (function() {
     async function init() {
         const currentPath = window.location.pathname.toLowerCase();
         const isPage = (name) => currentPath.includes(name) || (name === 'index' && (currentPath.endsWith('/') || currentPath.endsWith('index.html')));
-
+        
         if (window.settingsModule) await window.settingsModule.load();
-
+        
+        // As datas de inicio e fim do mês foram removidas do carregamento principal para exibir tudo
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-
+        
         if (isPage('index')) {
             if (window.cavalosModule) await window.cavalosModule.load();
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.tripsModule) {
-                await window.tripsModule.load(startOfMonth, endOfMonth);
+                await window.tripsModule.load(); // Alterado para buscar todo o histórico
             }
             
             const cavaloFilter = document.getElementById('dashboard-cavalo-filter');
@@ -27,21 +26,21 @@ window.app = (function() {
             }
             
             updateDashboard();
-        } 
+        }
         else if (isPage('cavalos')) {
             if (window.cavalosModule) await window.cavalosModule.load();
-        } 
+        }
         else if (isPage('motoristas')) {
             if (window.driversModule) await window.driversModule.load();
-        } 
+        }
         else if (isPage('ocorrencias')) {
             if (window.cavalosModule) await window.cavalosModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
-        } 
+        }
         else if (isPage('importar') || isPage('historico')) {
-            if (window.tripsModule) await window.tripsModule.load(startOfMonth, endOfMonth);
-        } 
+            if (window.tripsModule) await window.tripsModule.load(); // Alterado para buscar todo o histórico
+        }
         else if (isPage('ranking')) {
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
@@ -52,7 +51,6 @@ window.app = (function() {
     function updateDashboard() {
         const filterSelect = document.getElementById('dashboard-cavalo-filter');
         const selectedPlaca = filterSelect ? filterSelect.value : '';
-
         const drivers = window.driversModule ? window.driversModule.getAll() : [];
         let allTrips = window.tripsModule ? window.tripsModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
@@ -60,7 +58,6 @@ window.app = (function() {
         
         const goal = window.settingsModule ? (window.settingsModule.get().globalGoal || 3.0) : 3.0;
         
-        // CORREÇÃO: Arredondar o KML antes de aplicar a cor para bater com a tela
         const getColor = (kml) => {
             const roundedKml = parseFloat(parseFloat(kml).toFixed(2));
             return roundedKml > 0 ? (roundedKml < goal ? '#f87171' : '#10b981') : '#94a3b8';
@@ -164,6 +161,6 @@ window.app = (function() {
     }
 
     document.addEventListener('DOMContentLoaded', init);
-
+    
     return { updateDashboard };
 })();
