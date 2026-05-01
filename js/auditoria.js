@@ -8,9 +8,36 @@ window.filterGerencial = function() {
 };
 
 window.auditoriaModule = (function() {
+    function getAvailableMonths(trips) {
+        const monthsSet = new Set();
+        trips.forEach(t => {
+            if(t.inicio) {
+                const d = new Date(t.inicio);
+                if(!isNaN(d.getTime())) {
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const y = d.getFullYear();
+                    monthsSet.add(`${y}-${m}`);
+                }
+            }
+        });
+        let available = Array.from(monthsSet).sort().reverse();
+        if (available.length === 0) {
+            const d = new Date();
+            available.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        }
+        return available;
+    }
+
+    function formatMonthStr(yyyy_mm) {
+        const [y, m] = yyyy_mm.split('-');
+        const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+        return `${monthNames[parseInt(m)-1]}/${y.substring(2)}`;
+    }
+
     function render() {
         const drivers = window.driversModule ? window.driversModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
+        const allTrips = window.tripsModule ? window.tripsModule.getAll() : [];
         
         const parseNumber = (val) => {
             if (!val) return 0;
@@ -22,39 +49,62 @@ window.auditoriaModule = (function() {
         const getColor = (kml) => {
             const numKml = parseNumber(kml);
             if (numKml <= 0) return '#94a3b8';
-            
             const roundedKml = Number(numKml.toFixed(2));
             const roundedGoal = Number(goal.toFixed(2));
-            
             if (roundedKml >= roundedGoal) return '#10b981'; 
             return '#f87171'; 
         };
 
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        // Identifica e controla o mês filtrado na auditoria
+        const availableMonths = getAvailableMonths(allTrips);
+        let selectedMonth = availableMonths[0]; 
+        const filterSelect = document.getElementById('auditoria-month-filter');
+        if (filterSelect && filterSelect.value) {
+            selectedMonth = filterSelect.value;
+        }
+
+        const [selYear, selMonth] = selectedMonth.split('-');
         const DISTANCIA_MINIMA_QUALIFICACAO = 1000; 
         
-        const eligibleDrivers = drivers.filter(driver => {
-            if ((driver.total_distance || 0) < DISTANCIA_MINIMA_QUALIFICACAO) return false;
-            const hasOcorrenciaMes = ocorrencias.some(oc => {
-                if (oc.motorista === driver.name) {
-                    const ocDate = new Date(oc.data + 'T00:00:00');
-                    return ocDate.getMonth() === currentMonth && ocDate.getFullYear() === currentYear;
-                }
-                return false;
-            });
-            return !hasOcorrenciaMes;
+        const currentMonthTrips = allTrips.filter(t => {
+            if(!t.inicio) return false;
+            const d = new Date(t.inicio);
+            return d.getFullYear() == selYear && (d.getMonth() + 1) == selMonth;
         });
 
-        const maxDistance = Math.max(...eligibleDrivers.map(d => d.total_distance || 0), 1);
-        const maxKML = Math.max(...eligibleDrivers.map(d => d.avg_economy || 0), 1);
+        const currentMonthOcorrencias = ocorrencias.filter(oc => {
+            if(!oc.data) return false;
+            const d = new Date(oc.data + 'T00:00:00');
+            return d.getFullYear() == selYear && (d.getMonth() + 1) == selMonth;
+        });
+
+        const driversStats = drivers.map(driver => {
+            const dTrips = currentMonthTrips.filter(t => t.motorista === driver.name);
+            let dist = 0; let fuel = 0;
+            dTrips.forEach(t => {
+                dist += parseFloat(t.distancia_km) || 0;
+                fuel += parseFloat(t.total_litros) || 0;
+            });
+            const kml = fuel > 0 ? dist / fuel : 0;
+            const hasOcorrencia = currentMonthOcorrencias.some(oc => oc.motorista === driver.name);
+            
+            return { ...driver, calc_distance: dist, calc_kml: kml, has_ocorrencia: hasOcorrencia };
+        });
+
+        const eligibleDrivers = driversStats.filter(d => {
+            if (d.calc_distance < DISTANCIA_MINIMA_QUALIFICACAO) return false;
+            if (d.has_ocorrencia) return false;
+            return true;
+        });
+
+        const maxDistance = Math.max(...eligibleDrivers.map(d => d.calc_distance), 1);
+        const maxKML = Math.max(...eligibleDrivers.map(d => d.calc_kml), 1);
         const PESO_KML = 0.70;
         const PESO_DIST = 0.30;
 
         eligibleDrivers.forEach(d => {
-            const kmlRatio = (d.avg_economy || 0) / maxKML;
-            const distRatio = (d.total_distance || 0) / maxDistance;
+            const kmlRatio = d.calc_kml / maxKML;
+            const distRatio = d.calc_distance / maxDistance;
             d.ptsKml = Math.round(kmlRatio * PESO_KML * 1000);
             d.ptsDist = Math.round(distRatio * PESO_DIST * 1000);
             d.indiceDesempenho = d.ptsKml + d.ptsDist;
@@ -68,17 +118,26 @@ window.auditoriaModule = (function() {
             <div class="table-card full-width" style="border-top: 4px solid #3b82f6; background: #1e293b;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
                     <div>
-                        <h3 style="color: #38bdf8; margin-bottom: 8px;"><i class="fas fa-calculator"></i> Prestação de Contas (Pontuação Completa)</h3>
+                        <h3 style="color: #38bdf8; margin-bottom: 8px;"><i class="fas fa-calculator"></i> Prestação de Contas</h3>
                         <p style="color: #94a3b8; font-size: 0.85rem; line-height: 1.6;">
                             <strong>Regra:</strong> Desempenho KML (Peso 70%) + Desempenho Distância (Peso 30%) = Máx 1000 Pontos<br>
-                            <strong>Melhores Marcas (Base 100%):</strong> KM/L = ${utils.formatNumber(maxKML)} | Distância = ${utils.formatNumber(maxDistance, 0)} km<br>
+                            <strong>Melhores Marcas do Mês:</strong> KM/L = ${utils.formatNumber(maxKML)} | Distância = ${utils.formatNumber(maxDistance, 0)} km<br>
                             <strong>Trava de Qualificação:</strong> Mínimo de ${DISTANCIA_MINIMA_QUALIFICACAO} km rodados.
                         </p>
                     </div>
-                    <div style="min-width: 250px;">
-                        <input type="text" id="gerencial-search" onkeyup="window.filterGerencial()" placeholder="Buscar motorista..." class="form-control filter-input" style="width: 100%; background: #0f172a;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="color: #94a3b8; font-weight: 600; font-size: 0.9rem;">Mês:</label>
+                            <select id="auditoria-month-filter" class="form-control filter-input" style="width: 130px; font-weight: bold; background: #0f172a;" onchange="window.auditoriaModule.render()">
+                                ${availableMonths.map(m => `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${formatMonthStr(m)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div style="min-width: 250px;">
+                            <input type="text" id="gerencial-search" onkeyup="window.filterGerencial()" placeholder="Buscar motorista..." class="form-control filter-input" style="width: 100%; background: #0f172a;">
+                        </div>
                     </div>
                 </div>
+                
                 <div class="table-wrapper">
                     <table>
                         <thead>
@@ -96,32 +155,32 @@ window.auditoriaModule = (function() {
         `;
 
         sortedDrivers.forEach((d, idx) => {
-            const kmlPerc = ((d.avg_economy / maxKML) * 100).toFixed(1);
-            const distPerc = ((d.total_distance / maxDistance) * 100).toFixed(1);
+            const kmlPerc = ((d.calc_kml / maxKML) * 100).toFixed(1);
+            const distPerc = ((d.calc_distance / maxDistance) * 100).toFixed(1);
             detailsHtml += `
                 <tr class="gerencial-row" data-name="${escapeHtml(d.name)}">
                     <td style="font-weight: bold; color: #94a3b8;">${idx + 1}º</td>
                     <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(d.name)}</td>
-                    <td style="color: ${getColor(d.avg_economy)}; font-weight: bold;">${utils.formatNumber(d.avg_economy)}</td>
+                    <td style="color: ${getColor(d.calc_kml)}; font-weight: bold;">${utils.formatNumber(d.calc_kml)}</td>
                     <td><div style="display: flex; flex-direction: column;"><span style="color: #38bdf8; font-weight: bold;">${d.ptsKml} pts</span><span style="font-size: 0.7rem; color: #64748b;">${kmlPerc}% da melhor média</span></div></td>
-                    <td>${utils.formatNumber(d.total_distance, 0)}</td>
+                    <td>${utils.formatNumber(d.calc_distance, 0)}</td>
                     <td><div style="display: flex; flex-direction: column;"><span style="color: #fbbf24; font-weight: bold;">${d.ptsDist} pts</span><span style="font-size: 0.7rem; color: #64748b;">${distPerc}% da maior dist.</span></div></td>
                     <td style="font-size: 1.1rem; font-weight: bold; color: #10b981;">${d.indiceDesempenho}</td>
                 </tr>
             `;
         });
 
-        const disqualifiedDrivers = drivers.filter(driver => !sortedDrivers.includes(driver));
+        const disqualifiedDrivers = driversStats.filter(d => !sortedDrivers.includes(d));
         if (disqualifiedDrivers.length > 0) {
-            detailsHtml += `<tr><td colspan="7" style="background: rgba(239, 68, 68, 0.1); color: #f87171; text-align: center; font-weight: bold; padding: 12px; font-size: 0.85rem;">MOTORISTAS DESCLASSIFICADOS NESTE MÊS</td></tr>`;
-            disqualifiedDrivers.sort((a,b) => b.total_distance - a.total_distance).forEach(d => {
-                let reason = ((d.total_distance || 0) < DISTANCIA_MINIMA_QUALIFICACAO) ? `Faltou KM (${utils.formatNumber(d.total_distance, 0)} km)` : "Ocorrência Registrada";
+            detailsHtml += `<tr><td colspan="7" style="background: rgba(239, 68, 68, 0.1); color: #f87171; text-align: center; font-weight: bold; padding: 12px; font-size: 0.85rem;">TODOS OS MOTORISTAS DESCLASSIFICADOS EM ${formatMonthStr(selectedMonth).toUpperCase()}</td></tr>`;
+            disqualifiedDrivers.sort((a,b) => b.calc_distance - a.calc_distance).forEach(d => {
+                let reason = (d.calc_distance < DISTANCIA_MINIMA_QUALIFICACAO) ? `Faltou KM (${utils.formatNumber(d.calc_distance, 0)} km)` : "Ocorrência Registrada";
                 detailsHtml += `
                     <tr class="gerencial-row" data-name="${escapeHtml(d.name)}" style="opacity: 0.7;">
                         <td style="color: #f87171;"><i class="fas fa-ban"></i></td>
                         <td style="font-weight: 500; text-decoration: line-through;">${escapeHtml(d.name)}</td>
-                        <td>${utils.formatNumber(d.avg_economy)}</td><td style="color: #64748b;">Zerado</td>
-                        <td>${utils.formatNumber(d.total_distance, 0)}</td><td style="color: #64748b;">Zerado</td>
+                        <td>${utils.formatNumber(d.calc_kml)}</td><td style="color: #64748b;">Zerado</td>
+                        <td>${utils.formatNumber(d.calc_distance, 0)}</td><td style="color: #64748b;">Zerado</td>
                         <td style="color: #f87171; font-weight: bold; font-size: 0.8rem;">${reason}</td>
                     </tr>
                 `;
@@ -130,9 +189,11 @@ window.auditoriaModule = (function() {
         detailsHtml += `</tbody></table></div></div>`;
         detailsContainer.innerHTML = detailsHtml;
     }
+    
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div'); div.textContent = text; return div.innerHTML;
     }
+    
     return { render };
 })();

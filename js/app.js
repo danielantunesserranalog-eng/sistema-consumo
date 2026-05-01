@@ -41,11 +41,13 @@ window.app = (function() {
             if (window.tripsModule) await window.tripsModule.load(); 
         }
         else if (isPage('ranking')) {
+            if (window.tripsModule) await window.tripsModule.load(); // AQUI: Força o carregamento do histórico
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.rankingModule) window.rankingModule.render();
         }
         else if (isPage('auditoria')) {
+            if (window.tripsModule) await window.tripsModule.load(); // AQUI: Força o carregamento do histórico
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.auditoriaModule) window.auditoriaModule.render();
@@ -162,27 +164,20 @@ window.app = (function() {
             cavaloStats[p].liters += parseFloat(t.total_litros) || 0;
         });
 
-        // Monta o array dos cavalos procurando as carretas no cadastro
         const cavaloArray = Object.keys(cavaloStats).map(placa => {
             const stat = cavaloStats[placa];
             const kml = stat.liters > 0 ? (stat.distance / stat.liters) : 0;
             const cav = cavalos.find(c => c.placa === placa);
             
             let carretasLabel = 'Sem carretas vinculadas';
-            
             if (cav) {
-                // Puxa as 3 carretas e remove as que estiverem vazias
                 const listaCarretas = [cav.carreta1, cav.carreta2, cav.carreta3].filter(c => c && c.trim() !== '');
-                
-                if (listaCarretas.length > 0) {
-                    carretasLabel = listaCarretas.join(' / ');
-                }
+                if (listaCarretas.length > 0) carretasLabel = listaCarretas.join(' / ');
             }
             
             return { placa, carretas: carretasLabel, distance: stat.distance, liters: stat.liters, kml };
         }).filter(c => c.distance > 0).sort((a, b) => b.kml - a.kml);
 
-        // Atualiza a tabela jogando as carretas na tela
         const dashCavalosTbody = document.getElementById('dash-cavalos-list');
         if (dashCavalosTbody) {
             dashCavalosTbody.innerHTML = cavaloArray.map(c => `
