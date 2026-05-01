@@ -8,32 +8,22 @@ window.rankingModule = (function() {
         const getColor = (kml) => {
             const numKml = parseFloat(kml) || 0;
             if (numKml <= 0) return '#94a3b8';
-            
             const roundedKml = Number(numKml.toFixed(2));
             const roundedGoal = Number(goal.toFixed(2));
-            
-            if (roundedKml >= roundedGoal) {
-                return '#10b981'; 
-            } else {
-                return '#f87171'; 
-            }
+            if (roundedKml >= roundedGoal) return '#10b981'; 
+            else return '#f87171'; 
         };
         
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        // === NOVA REGRA DE CORTE ===
-        // Motoristas precisam rodar pelo menos essa quilometragem para entrar no Hall da Fama
         const DISTANCIA_MINIMA_QUALIFICACAO = 1000; 
         
-        // 1. Filtra quem tem o mínimo de km e não tem ocorrências no mês atual
         const eligibleDrivers = drivers.filter(driver => {
-            // Elimina quem não atingiu a quilometragem mínima no mês
             if ((driver.total_distance || 0) < DISTANCIA_MINIMA_QUALIFICACAO) {
                 return false;
             }
-
             const hasOcorrenciaMes = ocorrencias.some(oc => {
                 if (oc.motorista === driver.name) {
                     const ocDate = new Date(oc.data + 'T00:00:00');
@@ -44,7 +34,6 @@ window.rankingModule = (function() {
             return !hasOcorrenciaMes;
         });
 
-        // 2. LÓGICA DA MÉDIA PONDERADA (Índice de Desempenho)
         const maxDistance = Math.max(...eligibleDrivers.map(d => d.total_distance || 0), 1);
         const maxKML = Math.max(...eligibleDrivers.map(d => d.avg_economy || 0), 1);
 
@@ -54,11 +43,9 @@ window.rankingModule = (function() {
         eligibleDrivers.forEach(d => {
             const kmlRatio = (d.avg_economy || 0) / maxKML;
             const distRatio = (d.total_distance || 0) / maxDistance;
-            
             d.indiceDesempenho = Math.round(((kmlRatio * PESO_KML) + (distRatio * PESO_DIST)) * 1000);
         });
         
-        // 3. Ordena usando o novo Índice Ponderado (do maior para o menor)
         const sortedDrivers = [...eligibleDrivers]
             .sort((a, b) => (b.indiceDesempenho || 0) - (a.indiceDesempenho || 0))
             .slice(0, 10);

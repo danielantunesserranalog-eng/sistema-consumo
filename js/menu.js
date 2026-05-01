@@ -1,7 +1,6 @@
 // Arquivo: js/menu.js
 class AppSidebar extends HTMLElement {
     connectedCallback() {
-        // Identifica qual página estamos para marcar o menu como "ativo"
         const currentPage = window.location.pathname.split('/').pop() || 'index.html';
         
         this.innerHTML = `
@@ -31,6 +30,9 @@ class AppSidebar extends HTMLElement {
                 </a>
                 <a href="ranking.html" class="nav-item ${currentPage === 'ranking.html' ? 'active' : ''}">
                     <i class="fas fa-trophy"></i><span>Hall da Fama</span>
+                </a>
+                <a href="auditoria.html" class="nav-item ${currentPage === 'auditoria.html' ? 'active' : ''}">
+                    <i class="fas fa-user-tie"></i><span>Visão Gerencial</span>
                 </a>
                 <a href="configuracoes.html" class="nav-item ${currentPage === 'configuracoes.html' ? 'active' : ''}">
                     <i class="fas fa-cog"></i><span>Configurações</span>
@@ -63,6 +65,5 @@ class AppTopbar extends HTMLElement {
     }
 }
 
-// Registra os componentes para podermos usar as tags <app-sidebar> e <app-topbar>
 customElements.define('app-sidebar', AppSidebar);
 customElements.define('app-topbar', AppTopbar);

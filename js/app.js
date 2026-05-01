@@ -9,7 +9,6 @@ window.app = (function() {
         
         if (window.settingsModule) await window.settingsModule.load();
         
-        // As datas de inicio e fim do mês foram removidas do carregamento principal para exibir tudo
         const now = new Date();
         
         if (isPage('index')) {
@@ -17,7 +16,7 @@ window.app = (function() {
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.tripsModule) {
-                await window.tripsModule.load(); // Alterado para buscar todo o histórico
+                await window.tripsModule.load(); 
             }
             
             const cavaloFilter = document.getElementById('dashboard-cavalo-filter');
@@ -39,12 +38,17 @@ window.app = (function() {
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
         }
         else if (isPage('importar') || isPage('historico')) {
-            if (window.tripsModule) await window.tripsModule.load(); // Alterado para buscar todo o histórico
+            if (window.tripsModule) await window.tripsModule.load(); 
         }
         else if (isPage('ranking')) {
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.rankingModule) window.rankingModule.render();
+        }
+        else if (isPage('auditoria')) { // CARREGA A NOVA TELA GERENCIAL
+            if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
+            if (window.driversModule) await window.driversModule.load();
+            if (window.auditoriaModule) window.auditoriaModule.render();
         }
     }
 
