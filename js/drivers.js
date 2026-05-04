@@ -40,19 +40,15 @@ window.driversModule = (function() {
         let displayDrivers = drivers.filter(d => (d.name || '').toLowerCase().includes(searchTerm));
         displayDrivers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-        // Pegando os dados globais para o cálculo dinâmico
         const allTrips = window.tripsModule ? window.tripsModule.getAll() : [];
         const allOcorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
 
         tbody.innerHTML = displayDrivers.map(driver => {
-            // Filtrando viagens e ocorrências para este motorista específico
             const dTrips = allTrips.filter(t => t.motorista === driver.name);
             const dOcorrencias = allOcorrencias.filter(oc => oc.motorista === driver.name);
-
             let distTotal = 0;
             let fuelTotal = 0;
             let rawScore = 0;
-
             dTrips.forEach(t => {
                 distTotal += parseFloat(t.distancia_km) || 0;
                 fuelTotal += parseFloat(t.total_litros) || 0;
@@ -60,17 +56,22 @@ window.driversModule = (function() {
                 if (!isNaN(kml)) rawScore += kml * settings.pointsPerEconomy;
             });
 
-            // Contagem de ocorrências (Tabela + Manual)
             const countOcorrencias = Math.max(dOcorrencias.length, driver.occurrences || 0);
-
             const avgEconomy = fuelTotal > 0 ? distTotal / fuelTotal : 0;
             const finalScore = Math.max(0, Math.round(rawScore - (countOcorrencias * settings.penaltyPerOccurrence)));
+            
+            const fotoHtml = driver.foto ? `<img src="${driver.foto}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid #3b82f6;">` : `<div style="width: 35px; height: 35px; border-radius: 50%; background: #1e293b; border: 1px solid #475569; display: flex; align-items: center; justify-content: center;"><i class="fas fa-user" style="color: #94a3b8;"></i></div>`;
 
             return `
             <tr>
-                <td style="font-weight: 500; color: #f8fafc;">${escapeHtml(driver.name)}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 12px; font-weight: 500; color: #f8fafc;">
+                        ${fotoHtml}
+                        ${escapeHtml(driver.name)}
+                    </div>
+                </td>
                 <td>${utils.formatCPF(driver.cpf)}</td>
-                <td style="font-weight: 600; color: #38bdf8;">${utils.formatNumber(distTotal, 0)} km</td> <!-- Nova exibição da KM Total -->
+                <td style="font-weight: 600; color: #38bdf8;">${utils.formatNumber(distTotal, 0)} km</td>
                 <td><span class="status-badge success">${finalScore} pts</span></td>
                 <td><span class="status-badge warning">${countOcorrencias}</span></td>
                 <td style="color: ${getColor(avgEconomy)}; font-weight: 600;">${avgEconomy > 0 ? utils.formatNumber(avgEconomy) : '0.00'} km/L</td>
@@ -98,6 +99,7 @@ window.driversModule = (function() {
         editingId = driverId;
         const modal = document.getElementById('driver-modal');
         const title = document.getElementById('modal-title');
+        const preview = document.getElementById('foto-preview');
         
         if (driverId) {
             const driver = drivers.find(d => d.id === driverId);
@@ -105,10 +107,16 @@ window.driversModule = (function() {
                 document.getElementById('driver-name').value = driver.name;
                 document.getElementById('driver-cpf').value = driver.cpf;
                 document.getElementById('driver-matricula').value = driver.matricula;
+                document.getElementById('driver-foto-base64').value = driver.foto || '';
+                document.getElementById('driver-foto').value = ''; 
+                
+                preview.innerHTML = driver.foto ? `<img src="${driver.foto}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #3b82f6;">` : '';
                 title.textContent = 'Editar Motorista';
             }
         } else {
             document.getElementById('driver-form').reset();
+            document.getElementById('driver-foto-base64').value = '';
+            preview.innerHTML = '';
             title.textContent = 'Novo Motorista';
         }
         modal.classList.add('active');
@@ -118,6 +126,7 @@ window.driversModule = (function() {
         document.getElementById('driver-modal').classList.remove('active');
         editingId = null;
         document.getElementById('driver-form').reset();
+        document.getElementById('foto-preview').innerHTML = '';
     }
 
     async function saveDriver(event) {
@@ -128,7 +137,8 @@ window.driversModule = (function() {
         const driverData = {
             name: document.getElementById('driver-name').value,
             cpf: document.getElementById('driver-cpf').value,
-            matricula: document.getElementById('driver-matricula').value
+            matricula: document.getElementById('driver-matricula').value,
+            foto: document.getElementById('driver-foto-base64').value
         };
 
         if (editingId) {
@@ -220,6 +230,24 @@ window.driversModule = (function() {
     document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('driver-form');
         if (form) form.addEventListener('submit', saveDriver);
+
+        const fotoInput = document.getElementById('driver-foto');
+        if(fotoInput) {
+            fotoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        document.getElementById('driver-foto-base64').value = event.target.result;
+                        document.getElementById('foto-preview').innerHTML = `<img src="${event.target.result}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #3b82f6;">`;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    document.getElementById('driver-foto-base64').value = '';
+                    document.getElementById('foto-preview').innerHTML = '';
+                }
+            });
+        }
     });
 
     return { 

@@ -139,7 +139,9 @@ window.rankingModule = (function() {
             html += `
                 <div class="podium-card rank-${r}">
                     <div class="rank-badge">${r}</div>
-                    <div class="podium-avatar"><i class="fas fa-user"></i></div>
+                    <div class="podium-avatar">
+                        ${d.foto ? `<img src="${d.foto}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<i class="fas fa-user"></i>`}
+                    </div>
                     <div class="podium-name">${escapeHtml(d.name)}</div>
                     <div class="podium-main-stat" style="color: #38bdf8;">${d.indiceDesempenho} <span style="font-size: 1rem; color: #94a3b8;">pts</span></div>
                     <div class="podium-stats">

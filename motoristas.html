@@ -39,7 +39,7 @@
                                 <tr>
                                     <th>Nome</th>
                                     <th>CPF</th>
-                                    <th>KM Total</th> <!-- Alterado de Matrícula para KM Total -->
+                                    <th>KM Total</th>
                                     <th>Pontuação</th>
                                     <th>Ocorrências</th>
                                     <th>Média KM/L</th>
@@ -63,9 +63,25 @@
             </div>
             <div class="modal-body">
                 <form id="driver-form">
-                    <div class="form-group"><label>Nome Completo</label><input type="text" id="driver-name" required class="form-control filter-input" style="width: 100%;"></div>
-                    <div class="form-group" style="margin-top: 15px;"><label>CPF</label><input type="text" id="driver-cpf" required class="form-control filter-input" style="width: 100%;" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}"></div>
-                    <div class="form-group" style="margin-top: 15px;"><label>Matrícula (Interno)</label><input type="text" id="driver-matricula" required class="form-control filter-input" style="width: 100%;"></div>
+                    <div class="form-group">
+                        <label>Nome Completo</label>
+                        <input type="text" id="driver-name" required class="form-control filter-input" style="width: 100%;">
+                    </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>CPF</label>
+                        <input type="text" id="driver-cpf" required class="form-control filter-input" style="width: 100%;" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}">
+                    </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Matrícula (Interno)</label>
+                        <input type="text" id="driver-matricula" required class="form-control filter-input" style="width: 100%;">
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Foto do Motorista (Opcional)</label>
+                        <input type="file" id="driver-foto" accept="image/*" class="form-control filter-input" style="width: 100%; padding: 5px; height: auto; cursor: pointer;">
+                        <input type="hidden" id="driver-foto-base64">
+                        <div id="foto-preview" style="margin-top: 10px; display: flex; justify-content: center;"></div>
+                    </div>
                     
                     <div class="modal-footer" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
                         <button type="button" class="btn-secondary" onclick="window.driversModule.closeModal()">Cancelar</button>
