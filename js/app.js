@@ -1,36 +1,36 @@
-const supabaseUrl = window.ENV.SUPABASE_URL; 
-const supabaseKey = window.ENV.SUPABASE_KEY; 
-window.supabaseClient = supabase.createClient(supabaseUrl, supabaseKey); 
+const supabaseUrl = window.ENV.SUPABASE_URL;
+const supabaseKey = window.ENV.SUPABASE_KEY;
+window.supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
 window.app = (function() {
     async function init() {
         const currentPath = window.location.pathname.toLowerCase();
         const isPage = (name) => currentPath.includes(name) || (name === 'index' && (currentPath.endsWith('/') || currentPath.endsWith('index.html')));
-                 
+        
         if (window.settingsModule) await window.settingsModule.load();
-                 
+        
         const now = new Date();
-                 
+        
         if (isPage('index')) {
             if (window.cavalosModule) await window.cavalosModule.load();
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.tripsModule) {
-                await window.tripsModule.load(); 
+                await window.tripsModule.load();
             }
-                         
+            
             const cavaloFilter = document.getElementById('dashboard-cavalo-filter');
             if (cavaloFilter) {
                 cavaloFilter.addEventListener('change', updateDashboard);
             }
-                         
+            
             updateDashboard();
         }
         else if (isPage('cavalos')) {
             if (window.cavalosModule) await window.cavalosModule.load();
         }
         else if (isPage('motoristas')) {
-            // CORREÇÃO AQUI: Forçando o carregamento das Viagens e Ocorrências 
+            // Forçando o carregamento das Viagens e Ocorrências 
             // para que o cálculo da média e pontuação funcione!
             if (window.tripsModule) await window.tripsModule.load();
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
@@ -42,21 +42,21 @@ window.app = (function() {
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
         }
         else if (isPage('importar') || isPage('historico')) {
-            if (window.tripsModule) await window.tripsModule.load(); 
+            if (window.tripsModule) await window.tripsModule.load();
         }
         else if (isPage('ranking-geral')) {
-            if (window.tripsModule) await window.tripsModule.load(); 
+            if (window.tripsModule) await window.tripsModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.rankingGeralModule) window.rankingGeralModule.render();
         }
         else if (isPage('ranking')) {
-            if (window.tripsModule) await window.tripsModule.load(); 
+            if (window.tripsModule) await window.tripsModule.load();
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.rankingModule) window.rankingModule.render();
         }
         else if (isPage('auditoria')) {
-            if (window.tripsModule) await window.tripsModule.load(); 
+            if (window.tripsModule) await window.tripsModule.load();
             if (window.ocorrenciasModule) await window.ocorrenciasModule.load();
             if (window.driversModule) await window.driversModule.load();
             if (window.auditoriaModule) window.auditoriaModule.render();
@@ -70,19 +70,18 @@ window.app = (function() {
         let allTrips = window.tripsModule ? window.tripsModule.getAll() : [];
         const ocorrencias = window.ocorrenciasModule ? window.ocorrenciasModule.getAll() : [];
         const cavalos = window.cavalosModule ? window.cavalosModule.getAll() : [];
-                 
+
         const parseNumber = (val) => {
             if (!val) return 0;
             return parseFloat(String(val).replace(',', '.')) || 0;
         };
         const goal = window.settingsModule ? parseNumber(window.settingsModule.get().globalGoal || 1.8) : 1.8;
-                 
+
         const getColor = (kml) => {
             const numKml = parseNumber(kml);
             if (numKml <= 0) return '#94a3b8';
             const roundedKml = Number(numKml.toFixed(2));
             const roundedGoal = Number(goal.toFixed(2));
-                         
             return roundedKml >= roundedGoal ? '#10b981' : '#f87171';
         };
 
@@ -105,14 +104,14 @@ window.app = (function() {
         const totalLitersEl = document.getElementById('total-liters');
         const avgEconomyEl = document.getElementById('avg-economy');
         const topDriverEl = document.getElementById('top-driver');
-                 
+
         const sumDistance = filteredTrips.reduce((sum, t) => sum + (parseFloat(t.distancia_km) || 0), 0);
         const sumLiters = filteredTrips.reduce((sum, t) => sum + (parseFloat(t.total_litros) || 0), 0);
 
         if (totalDriversEl) totalDriversEl.textContent = drivers.length;
         if (totalDistanceEl) totalDistanceEl.textContent = utils.formatNumber(sumDistance, 0) + ' km';
         if (totalLitersEl) totalLitersEl.textContent = utils.formatNumber(sumLiters, 0) + ' L';
-                 
+
         if (avgEconomyEl) {
             const globalAvg = sumLiters > 0 ? (sumDistance / sumLiters) : 0;
             avgEconomyEl.textContent = utils.formatNumber(globalAvg);
@@ -149,7 +148,8 @@ window.app = (function() {
 
         const top5Tbody = document.getElementById('top5-list');
         if (top5Tbody) {
-            const top5 = driverArray.slice(0, 5);
+            // MODIFICADO: Filtra apenas motoristas com 1000 km ou mais antes de pegar o Top 5
+            const top5 = driverArray.filter(d => d.distance >= 1000).slice(0, 5);
             top5Tbody.innerHTML = top5.map(d => `<tr><td style="font-weight:500;">${d.name}</td><td style="color: ${getColor(d.kml)}; font-weight: bold;">${utils.formatNumber(d.kml)}</td><td>${utils.formatNumber(d.distance, 0)} km</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Sem dados de viagens</td></tr>';
         }
 
@@ -161,7 +161,9 @@ window.app = (function() {
 
         const dashDriversTbody = document.getElementById('dash-drivers-list');
         if (dashDriversTbody) {
-            dashDriversTbody.innerHTML = driverArray.map(d => `<tr><td style="font-weight:500; color: #f8fafc;">${d.name}</td><td>${utils.formatNumber(d.distance, 0)}</td><td style="color: ${getColor(d.kml)}; font-weight: bold;">${utils.formatNumber(d.kml)}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
+            // MODIFICADO: Filtra apenas motoristas com 1000 km ou mais na tabela de desempenho
+            const dashDrivers = driverArray.filter(d => d.distance >= 1000);
+            dashDriversTbody.innerHTML = dashDrivers.map(d => `<tr><td style="font-weight:500; color: #f8fafc;">${d.name}</td><td>${utils.formatNumber(d.distance, 0)}</td><td style="color: ${getColor(d.kml)}; font-weight: bold;">${utils.formatNumber(d.kml)}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
         }
 
         const cavaloStats = {};
@@ -176,13 +178,13 @@ window.app = (function() {
             const stat = cavaloStats[placa];
             const kml = stat.liters > 0 ? (stat.distance / stat.liters) : 0;
             const cav = cavalos.find(c => c.placa === placa);
-                         
+            
             let carretasLabel = 'Sem carretas vinculadas';
             if (cav) {
                 const listaCarretas = [cav.carreta1, cav.carreta2, cav.carreta3].filter(c => c && c.trim() !== '');
                 if (listaCarretas.length > 0) carretasLabel = listaCarretas.join(' / ');
             }
-                         
+            
             return { placa, carretas: carretasLabel, distance: stat.distance, liters: stat.liters, kml };
         }).filter(c => c.distance > 0).sort((a, b) => b.kml - a.kml);
 
@@ -200,8 +202,8 @@ window.app = (function() {
             `).join('') || '<tr><td colspan="3" class="text-center">Nenhuma viagem registrada</td></tr>';
         }
     }
-    
+
     document.addEventListener('DOMContentLoaded', init);
-         
+    
     return { updateDashboard };
 })();
