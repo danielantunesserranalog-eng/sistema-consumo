@@ -20,7 +20,6 @@ window.rankingGeralModule = (function() {
 
         const DISTANCIA_MINIMA_QUALIFICACAO = 1000;
 
-        // Calcula as estatísticas de cada motorista DENTRO do histórico completo
         const driversStats = drivers.map(driver => {
             const dTrips = allTrips.filter(t => t.motorista === driver.name);
             let dist = 0; let fuel = 0;
@@ -34,11 +33,10 @@ window.rankingGeralModule = (function() {
                 ...driver,
                 calc_distance: dist,
                 calc_kml: kml,
-                has_ocorrencia: false // Ocorrências não desclassificam no global
+                has_ocorrencia: false
             };
         });
 
-        // Aplica as regras de corte (Apenas distância mínima neste caso)
         const eligibleDrivers = driversStats.filter(d => {
             if (d.calc_distance < DISTANCIA_MINIMA_QUALIFICACAO) return false;
             return true;
@@ -71,11 +69,14 @@ window.rankingGeralModule = (function() {
         }
         
         html += '<div class="podium-wrapper"><div class="podium-container">';
-        const top3 = sortedDrivers.slice(0, 3);
+        
+        const top5 = sortedDrivers.slice(0, 5);
         const podiumOrder = [];
-        if(top3[1]) podiumOrder.push({driver: top3[1], rank: 2});
-        if(top3[0]) podiumOrder.push({driver: top3[0], rank: 1});
-        if(top3[2]) podiumOrder.push({driver: top3[2], rank: 3});
+        if(top5[3]) podiumOrder.push({driver: top5[3], rank: 4});
+        if(top5[1]) podiumOrder.push({driver: top5[1], rank: 2});
+        if(top5[0]) podiumOrder.push({driver: top5[0], rank: 1});
+        if(top5[2]) podiumOrder.push({driver: top5[2], rank: 3});
+        if(top5[4]) podiumOrder.push({driver: top5[4], rank: 5});
         
         podiumOrder.forEach(item => {
             const d = item.driver;
@@ -85,9 +86,9 @@ window.rankingGeralModule = (function() {
                     <div class="rank-badge">${r}</div>
                     <div class="podium-avatar"><i class="fas fa-user"></i></div>
                     <div class="podium-name">${escapeHtml(d.name)}</div>
-                    <div class="podium-kml" style="color: ${getColor(d.calc_kml)};">${utils.formatNumber(d.calc_kml)} <span style="font-size: 1rem; color: #94a3b8;">km/L</span></div>
+                    <div class="podium-main-stat" style="color: #38bdf8;">${d.indiceDesempenho} <span style="font-size: 1rem; color: #94a3b8;">pts</span></div>
                     <div class="podium-stats">
-                        <div class="p-stat"><span>Índice</span><strong>${d.indiceDesempenho} pts</strong></div>
+                        <div class="p-stat"><span>Média</span><strong style="color: ${getColor(d.calc_kml)};">${utils.formatNumber(d.calc_kml)} km/L</strong></div>
                         <div class="p-stat"><span>Distância</span><strong>${utils.formatNumber(d.calc_distance, 0)} km</strong></div>
                     </div>
                 </div>
@@ -95,13 +96,13 @@ window.rankingGeralModule = (function() {
         });
         html += '</div></div>';
         
-        const remaining = sortedDrivers.slice(3);
+        const remaining = sortedDrivers.slice(5);
         if (remaining.length > 0) {
             html += '<div style="margin-top: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">';
             remaining.forEach((driver, idx) => {
                 html += `
                     <div class="ranking-list-item">
-                        <div class="ranking-list-pos">${idx + 4}</div>
+                        <div class="ranking-list-pos">${idx + 6}</div>
                         <div class="ranking-list-info">
                             <div class="ranking-list-name">${escapeHtml(driver.name)}</div>
                             <div class="ranking-list-stats">
@@ -109,12 +110,13 @@ window.rankingGeralModule = (function() {
                                 <span><i class="fas fa-road"></i> ${utils.formatNumber(driver.calc_distance, 0)} km</span>
                             </div>
                         </div>
-                        <div class="ranking-list-score" title="Índice Ponderado">${driver.indiceDesempenho} pts</div>
+                        <div class="ranking-list-score" title="Pontuação">${driver.indiceDesempenho} pts</div>
                     </div>
                 `;
             });
             html += '</div>';
         }
+
         rankingContainer.innerHTML = html;
     }
     
