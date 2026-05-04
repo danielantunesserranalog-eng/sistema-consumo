@@ -59,7 +59,7 @@ class AppTopbar extends HTMLElement {
                 </div>
                 <div class="user-info">
                     <div class="status-indicator"></div>
-                    <span>Admin MP</span>
+                    <span>CCOL - MUCURI - SERRANA</span>
                     <i class="fas fa-user-circle"></i>
                 </div>
             </div>
