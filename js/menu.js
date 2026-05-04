@@ -31,6 +31,9 @@ class AppSidebar extends HTMLElement {
                 <a href="ranking.html" class="nav-item ${currentPage === 'ranking.html' ? 'active' : ''}">
                     <i class="fas fa-trophy"></i><span>Hall da Fama</span>
                 </a>
+                <a href="ranking-geral.html" class="nav-item ${currentPage === 'ranking-geral.html' ? 'active' : ''}">
+                    <i class="fas fa-globe"></i><span>Ranking Geral</span>
+                </a>
                 <a href="auditoria.html" class="nav-item ${currentPage === 'auditoria.html' ? 'active' : ''}">
                     <i class="fas fa-user-tie"></i><span>Visão Gerencial</span>
                 </a>
