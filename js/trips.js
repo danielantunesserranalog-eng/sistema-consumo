@@ -187,7 +187,12 @@ window.tripsModule = (function() {
         
         for (let i = 0; i < supabaseData.length; i += batchSize) {
             const batch = supabaseData.slice(i, i + batchSize);
-            const { error } = await window.supabaseClient.from('viagens').insert(batch);
+            
+            // Alterado de .insert para .upsert para lidar com as duplicatas de forma inteligente
+            const { error } = await window.supabaseClient
+                .from('viagens')
+                .upsert(batch, { onConflict: 'motorista,inicio', ignoreDuplicates: true });
+                
             if (error) {
                 console.error(error);
                 hasError = true;
@@ -199,7 +204,7 @@ window.tripsModule = (function() {
         } else {
             await loadTrips(); // Removido recarregamento mensal, carrega tudo após importação
             updateDriverStats();
-            utils.showAlert(`<i class="fas fa-check-double"></i> ${supabaseData.length} viagens importadas com sucesso!`, 'success');
+            utils.showAlert(`<i class="fas fa-check-double"></i> Viagens processadas com sucesso! Duplicadas foram ignoradas.`, 'success');
         }
     }
 
